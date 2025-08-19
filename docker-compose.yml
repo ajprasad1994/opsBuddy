@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # OpsBuddy Application
+  opsbuddy:
+    build: .
+    container_name: opsbuddy-app
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8000
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+      - INFLUXDB_HOST=influxdb
+      - INFLUXDB_PORT=8086
+      - INFLUXDB_TOKEN=your_influxdb_token_here
+      - INFLUXDB_ORG=opsbuddy
+      - INFLUXDB_DATABASE=opsbuddy
+      - INFLUXDB_URL=http://influxdb:8086
+      - MAX_FILE_SIZE=104857600
+      - UPLOAD_DIRECTORY=./uploads
+      - ALLOWED_FILE_TYPES=txt,log,json,csv,yaml,yml
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    depends_on:
+      - influxdb
+    restart: unless-stopped
+    networks:
+      - opsbuddy-network
+
+  # InfluxDB 2.x
+  influxdb:
+    image: influxdb:2.7
+    container_name: opsbuddy-influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=adminpassword
+      - DOCKER_INFLUXDB_INIT_ORG=opsbuddy
+      - DOCKER_INFLUXDB_INIT_BUCKET=opsbuddy
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=your_influxdb_token_here
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - influxdb_config:/etc/influxdb2
+    restart: unless-stopped
+    networks:
+      - opsbuddy-network
+
+  # Optional: InfluxDB 1.x (for legacy support)
+  # influxdb1:
+  #   image: influxdb:1.8
+  #   container_name: opsbuddy-influxdb1
+  #   ports:
+  #     - "8087:8086"
+  #   environment:
+  #     - INFLUXDB_DB=opsbuddy
+  #     - INFLUXDB_ADMIN_USER=admin
+  #     - INFLUXDB_ADMIN_PASSWORD=adminpassword
+  #   volumes:
+  #     - influxdb1_data:/var/lib/influxdb
+  #   restart: unless-stopped
+  #   networks:
+  #     - opsbuddy-network
+
+  # Optional: Redis for caching (future enhancement)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: opsbuddy-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   restart: unless-stopped
+  #   networks:
+  #     - opsbuddy-network
+
+volumes:
+  influxdb_data:
+  influxdb_config:
+  # influxdb1_data:
+  # redis_data:
+
+networks:
+  opsbuddy-network:
+    driver: bridge
