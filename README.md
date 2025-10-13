@@ -52,14 +52,14 @@ OpsBuddy follows a modern microservices architecture pattern with the following 
 ## 📋 Current Implementation Status
 
 ### ✅ **Fully Implemented & Tested**
-- **API Gateway** (Port 8000) - Complete with health monitoring and routing
-- **File Service** (Port 8001) - Full CRUD operations for file management
-- **Utility Service** (Port 8002) - Configuration management and system operations
-- **Web UI Service** (Port 3000) - Modern interface for testing all services
+- **🌐 Web UI Service** (Port 3000) - Modern interface for testing all services with "Welcome to OpsBuddy - AI driven oncall support"
+- **🚪 API Gateway** (Port 8000) - Complete with health monitoring and routing
+- **📁 File Service** (Port 8001) - Full CRUD operations for file management
+- **⚙️ Utility Service** (Port 8002) - Configuration management and system operations
+- **📊 Analytics Service** (Port 8003) - Log collection, validation, and time-series storage in InfluxDB
 
 ### 🚧 **Planned (Not Yet Implemented)**
-- **Analytics Service** (Port 8003) - Data analytics and reporting
-- **Timeseries Service** (Port 8004) - Time-series database operations
+- **📈 Timeseries Service** (Port 8004) - Advanced time-series database operations and queries
 
 ## 🎯 Key Features
 
@@ -93,6 +93,15 @@ OpsBuddy follows a modern microservices architecture pattern with the following 
 - **Command Execution**: Safe execution of system commands with timeouts
 - **Health Monitoring**: Service and database health checks
 
+### **📊 Analytics Service (Port 8003)**
+- **Log Collection**: Automated collection from all microservices
+- **Log Validation**: Strict schema validation and error handling
+- **Data Transformation**: Standardized schema for consistent storage
+- **InfluxDB Storage**: Time-series optimized storage and querying
+- **Service Metrics**: Real-time statistics and error rate calculation
+- **Analytics Queries**: Advanced filtering and aggregation capabilities
+- **Log Analytics Dashboard**: Comprehensive log analysis interface
+
 ### **🗄️ Infrastructure**
 - **InfluxDB**: Time-series database for metrics and logs (Port 8086)
 - **Docker**: Full containerization support for all services
@@ -123,9 +132,10 @@ This will start:
 - **🚪 API Gateway** on port 8000
 - **📁 File Service** on port 8001
 - **⚙️ Utility Service** on port 8002
+- **📊 Analytics Service** on port 8003
 - **🗄️ InfluxDB** on port 8086
 
-> **Note**: Analytics Service (Port 8003) and Timeseries Service (Port 8004) are planned but not yet implemented.
+> **Note**: Timeseries Service (Port 8004) is planned but not yet implemented.
 
 ### 3. Access the Services
 
@@ -153,6 +163,14 @@ This will start:
 - **URL**: http://localhost:8002
 - **Health Check**: http://localhost:8002/health
 - **API Documentation**: http://localhost:8002/docs
+
+#### 📊 Analytics Service Direct Access
+- **URL**: http://localhost:8003
+- **Health Check**: http://localhost:8003/health
+- **API Documentation**: http://localhost:8003/docs
+- **Log Ingestion**: http://localhost:8003/logs
+- **Metrics**: http://localhost:8003/metrics
+- **Statistics**: http://localhost:8003/stats
 
 ## 🔧 Local Development
 
@@ -231,6 +249,10 @@ curl -X POST http://localhost:8000/api/files/upload \
 
 # Utility operations
 curl http://localhost:8000/api/utils/system/info
+
+# Analytics operations
+curl http://localhost:8000/api/analytics/metrics
+curl http://localhost:8000/api/analytics/stats
 ```
 
 ### 🛠️ Direct Service Access
@@ -241,6 +263,7 @@ For development/testing, you can access services directly:
 # Health Checks
 curl http://localhost:8001/health  # File Service
 curl http://localhost:8002/health  # Utility Service
+curl http://localhost:8003/health  # Analytics Service
 curl http://localhost:3000/health  # UI Service
 
 # File Service Endpoints
@@ -254,6 +277,16 @@ curl http://localhost:8002/configs                  # List configurations
 curl http://localhost:8002/system/info              # System information
 curl -X POST http://localhost:8002/system/execute \ # Execute command
   -d "command=ls -la" -d "timeout=30"
+
+# Analytics Service Endpoints
+curl http://localhost:8003/metrics                  # Service metrics
+curl http://localhost:8003/stats                    # Service statistics
+curl -X POST http://localhost:8003/logs/single \   # Ingest single log
+  -H "Content-Type: application/json" \
+  -d '{"timestamp":"2025-10-13T01:19:00Z","level":"INFO","logger":"test","message":"Test log","service":"test-service"}'
+curl -X POST http://localhost:8003/logs/query \    # Query logs
+  -H "Content-Type: application/json" \
+  -d '{"service":"file-service","level":"ERROR","limit":10}'
 ```
 
 ### 🖥️ UI Service API Endpoints
@@ -277,6 +310,15 @@ curl -X POST http://localhost:3000/api/configs \
 curl http://localhost:3000/api/system/info
 curl -X POST http://localhost:3000/api/system/execute \
   -d "command=uptime" -d "timeout=10"
+
+# Analytics Operations (via UI service)
+curl http://localhost:3000/api/analytics/logs
+curl http://localhost:3000/api/analytics/metrics
+curl http://localhost:3000/api/analytics/stats
+curl -X POST http://localhost:3000/api/analytics/logs \
+  -d "timestamp=2025-10-13T01:19:00Z" \
+  -d "level=INFO" -d "logger=test" \
+  -d "message=Test message" -d "service=test-service"
 ```
 
 ## 🐳 Docker Commands
@@ -309,6 +351,13 @@ docker run -p 8001:8001 opsbuddy-file-service
 cd services/utility-service
 docker build -t opsbuddy-utility-service .
 docker run -p 8002:8002 opsbuddy-utility-service
+```
+
+#### 📊 Analytics Service
+```bash
+cd services/analytics-service
+docker build -t opsbuddy-analytics-service .
+docker run -p 8003:8003 opsbuddy-analytics-service
 ```
 
 ### Full Stack with Docker Compose
@@ -346,6 +395,7 @@ curl http://localhost:3000/health    # UI Service
 curl http://localhost:8000/health    # Gateway
 curl http://localhost:8001/health    # File Service
 curl http://localhost:8002/health    # Utility Service
+curl http://localhost:8003/health    # Analytics Service
 ```
 
 ## 🔍 Monitoring and Health Checks
@@ -535,6 +585,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Response Logging**: View API responses and debug information
 - **Status Indicators**: Visual indicators for service health (healthy/unhealthy)
 
+### Analytics Interface
+- **Service Statistics Dashboard**: 24-hour metrics with error rates and trends
+- **Log Query Interface**: Filter and search logs by service, level, and time
+- **Manual Log Entry**: Test log ingestion with custom log data
+- **Metrics Display**: Real-time service performance metrics
+- **Analytics Dashboard**: Comprehensive log analysis and visualization
+
 ## 🔮 Roadmap
 
 ### 🚀 Immediate Next Steps
@@ -559,16 +616,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 | **API Gateway** | ✅ **Complete** | 8000 | Request routing and load balancing |
 | **File Service** | ✅ **Complete** | 8001 | File upload/download/management |
 | **Utility Service** | ✅ **Complete** | 8002 | System utilities and configurations |
-| **Analytics Service** | 🚧 **Planned** | 8003 | Data analytics and reporting |
-| **Timeseries Service** | 🚧 **Planned** | 8004 | Time-series database operations |
+| **Analytics Service** | ✅ **Complete** | 8003 | Log collection, validation & InfluxDB storage |
+| **Timeseries Service** | 🚧 **Planned** | 8004 | Advanced time-series operations |
 | **InfluxDB** | ✅ **Complete** | 8086 | Time-series database |
 
 ### Version History
 
 - **v1.0.0**: Initial microservices release with API Gateway, File Service, and Utility Service
 - **v1.1.0**: ✅ **Web UI Service** - Modern interface for testing and managing all services
-- **v1.2.0**: Enhanced monitoring and observability (planned)
-- **v1.3.0**: Analytics and Timeseries services (planned)
+- **v1.2.0**: ✅ **Analytics Service** - Log collection, validation, and InfluxDB storage
+- **v1.3.0**: Timeseries service and advanced analytics (planned)
 - **v2.0.0**: Service mesh and advanced routing (planned)
 
 ---

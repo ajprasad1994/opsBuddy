@@ -18,13 +18,14 @@ services:
       - FILE_SERVICE_PORT=8001
       - UTILITY_SERVICE_HOST=utility-service
       - UTILITY_SERVICE_PORT=8002
-      # - ANALYTICS_SERVICE_HOST=analytics-service
-      # - ANALYTICS_SERVICE_PORT=8003
+      - ANALYTICS_SERVICE_HOST=analytics-service
+      - ANALYTICS_SERVICE_PORT=8003
       # - TIMESERIES_SERVICE_HOST=timeseries-service
       # - TIMESERIES_SERVICE_PORT=8004
     depends_on:
       - file-service
       - utility-service
+      - analytics-service
     restart: unless-stopped
     networks:
       - opsbuddy-network
@@ -87,30 +88,37 @@ services:
     networks:
       - opsbuddy-network
 
-  # Analytics Service - Not implemented yet
-  # analytics-service:
-  #   build: ./services/analytics-service
-  #   container_name: opsbuddy-analytics-service
-  #   ports:
-  #     - "8003:8003"
-  #   environment:
-  #     - SERVICE_HOST=0.0.0.0
-  #     - SERVICE_PORT=8003
-  #     - DEBUG=true
-  #     - ENVIRONMENT=development
-  #     - LOG_LEVEL=INFO
-  #     - LOG_FORMAT=json
-  #     - INFLUXDB_HOST=influxdb
-  #     - INFLUXDB_PORT=8086
-  #     - INFLUXDB_TOKEN=your_influxdb_token_here
-  #     - INFLUXDB_ORG=opsbuddy
-  #     - INFLUXDB_DATABASE=opsbuddy
-  #     - INFLUXDB_URL=http://influxdb:8086
-  #   depends_on:
-  #     - influxdb
-  #   restart: unless-stopped
-  #   networks:
-  #     - opsbuddy-network
+  # Analytics Service
+  analytics-service:
+    build: ./services/analytics-service
+    container_name: opsbuddy-analytics-service
+    ports:
+      - "8003:8003"
+    environment:
+      - SERVICE_HOST=0.0.0.0
+      - SERVICE_PORT=8003
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+      - INFLUXDB_HOST=influxdb
+      - INFLUXDB_PORT=8086
+      - INFLUXDB_TOKEN=your_influxdb_token_here
+      - INFLUXDB_ORG=opsbuddy
+      - INFLUXDB_DATABASE=opsbuddy
+      - INFLUXDB_URL=http://influxdb:8086
+      - LOG_COLLECTION_INTERVAL=30
+      - BATCH_SIZE=100
+      - RETENTION_DAYS=30
+      - GATEWAY_URL=http://api-gateway:8000
+      - FILE_SERVICE_URL=http://file-service:8001
+      - UTILITY_SERVICE_URL=http://utility-service:8002
+      - UI_SERVICE_URL=http://ui-service:3000
+    depends_on:
+      - influxdb
+    restart: unless-stopped
+    networks:
+      - opsbuddy-network
 
   # Timeseries DB Service - Not implemented yet
   # timeseries-service:

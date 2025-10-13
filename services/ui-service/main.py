@@ -24,7 +24,8 @@ startup_time = None
 SERVICE_URLS = {
     "gateway": "http://api-gateway:8000",
     "file-service": "http://file-service:8001",
-    "utility-service": "http://utility-service:8002"
+    "utility-service": "http://utility-service:8002",
+    "analytics-service": "http://analytics-service:8003"
 }
 
 @asynccontextmanager
@@ -201,6 +202,63 @@ async def execute_command(command: str = Form(...), timeout: int = Form(30)):
     return await make_request(url, "POST", json=command_data)
 
 
+# Analytics Service endpoints
+@app.get("/api/analytics/logs")
+async def get_analytics_logs(
+    service: str = None,
+    level: str = None,
+    limit: int = 100
+):
+    """Get logs from analytics service."""
+    params = {"limit": min(limit, 1000)}
+    if service:
+        params["service"] = service
+    if level:
+        params["level"] = level
+
+    url = f"{SERVICE_URLS['analytics-service']}/logs/query"
+    return await make_request(url, "POST", json=params)
+
+
+@app.get("/api/analytics/metrics")
+async def get_analytics_metrics():
+    """Get metrics from analytics service."""
+    url = f"{SERVICE_URLS['analytics-service']}/metrics"
+    return await make_request(url)
+
+
+@app.get("/api/analytics/stats")
+async def get_analytics_stats():
+    """Get service statistics from analytics service."""
+    url = f"{SERVICE_URLS['analytics-service']}/stats"
+    return await make_request(url)
+
+
+@app.post("/api/analytics/logs")
+async def send_log_to_analytics(
+    timestamp: str = Form(...),
+    level: str = Form(...),
+    logger_name: str = Form(...),
+    message: str = Form(...),
+    service: str = Form(...),
+    operation: str = Form(""),
+    data: str = Form("")
+):
+    """Send a log entry to analytics service."""
+    log_data = {
+        "timestamp": timestamp,
+        "level": level,
+        "logger": logger_name,
+        "message": message,
+        "service": service,
+        "operation": operation if operation else None,
+        "data": data if data else None
+    }
+
+    url = f"{SERVICE_URLS['analytics-service']}/logs/single"
+    return await make_request(url, "POST", json=log_data)
+
+
 # Service status endpoints
 @app.get("/api/services/status")
 async def get_services_status():
@@ -247,6 +305,12 @@ async def utility_page(request: Request):
 async def system_page(request: Request):
     """System operations UI page."""
     return templates.TemplateResponse("system.html", {"request": request})
+
+
+@app.get("/analytics", response_class=HTMLResponse)
+async def analytics_page(request: Request):
+    """Analytics service UI page."""
+    return templates.TemplateResponse("analytics.html", {"request": request})
 
 
 if __name__ == "__main__":
