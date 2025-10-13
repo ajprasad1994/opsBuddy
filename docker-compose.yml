@@ -18,15 +18,13 @@ services:
       - FILE_SERVICE_PORT=8001
       - UTILITY_SERVICE_HOST=utility-service
       - UTILITY_SERVICE_PORT=8002
-      - ANALYTICS_SERVICE_HOST=analytics-service
-      - ANALYTICS_SERVICE_PORT=8003
-      - TIMESERIES_SERVICE_HOST=timeseries-service
-      - TIMESERIES_SERVICE_PORT=8004
+      # - ANALYTICS_SERVICE_HOST=analytics-service
+      # - ANALYTICS_SERVICE_PORT=8003
+      # - TIMESERIES_SERVICE_HOST=timeseries-service
+      # - TIMESERIES_SERVICE_PORT=8004
     depends_on:
       - file-service
       - utility-service
-      - analytics-service
-      - timeseries-service
     restart: unless-stopped
     networks:
       - opsbuddy-network
@@ -55,8 +53,8 @@ services:
       - ALLOWED_FILE_TYPES=txt,log,json,csv,yaml,yml
     volumes:
       - file_uploads:/app/uploads
-    depends_on:
-      - influxdb
+    # depends_on:
+    #   - influxdb
     restart: unless-stopped
     networks:
       - opsbuddy-network
@@ -82,62 +80,62 @@ services:
       - INFLUXDB_URL=http://influxdb:8086
       - COMMAND_TIMEOUT=30
       - MAX_COMMAND_OUTPUT=1048576
-      - ALLOWED_COMMANDS=ls,ps,df,free,uptime
-    depends_on:
-      - influxdb
+      # - ALLOWED_COMMANDS=["ls","ps","df","free","uptime"]
+    # depends_on:
+    #   - influxdb
     restart: unless-stopped
     networks:
       - opsbuddy-network
 
-  # Analytics Service
-  analytics-service:
-    build: ./services/analytics-service
-    container_name: opsbuddy-analytics-service
-    ports:
-      - "8003:8003"
-    environment:
-      - SERVICE_HOST=0.0.0.0
-      - SERVICE_PORT=8003
-      - DEBUG=true
-      - ENVIRONMENT=development
-      - LOG_LEVEL=INFO
-      - LOG_FORMAT=json
-      - INFLUXDB_HOST=influxdb
-      - INFLUXDB_PORT=8086
-      - INFLUXDB_TOKEN=your_influxdb_token_here
-      - INFLUXDB_ORG=opsbuddy
-      - INFLUXDB_DATABASE=opsbuddy
-      - INFLUXDB_URL=http://influxdb:8086
-    depends_on:
-      - influxdb
-    restart: unless-stopped
-    networks:
-      - opsbuddy-network
+  # Analytics Service - Not implemented yet
+  # analytics-service:
+  #   build: ./services/analytics-service
+  #   container_name: opsbuddy-analytics-service
+  #   ports:
+  #     - "8003:8003"
+  #   environment:
+  #     - SERVICE_HOST=0.0.0.0
+  #     - SERVICE_PORT=8003
+  #     - DEBUG=true
+  #     - ENVIRONMENT=development
+  #     - LOG_LEVEL=INFO
+  #     - LOG_FORMAT=json
+  #     - INFLUXDB_HOST=influxdb
+  #     - INFLUXDB_PORT=8086
+  #     - INFLUXDB_TOKEN=your_influxdb_token_here
+  #     - INFLUXDB_ORG=opsbuddy
+  #     - INFLUXDB_DATABASE=opsbuddy
+  #     - INFLUXDB_URL=http://influxdb:8086
+  #   depends_on:
+  #     - influxdb
+  #   restart: unless-stopped
+  #   networks:
+  #     - opsbuddy-network
 
-  # Timeseries DB Service
-  timeseries-service:
-    build: ./services/timeseries-service
-    container_name: opsbuddy-timeseries-service
-    ports:
-      - "8004:8004"
-    environment:
-      - SERVICE_HOST=0.0.0.0
-      - SERVICE_PORT=8004
-      - DEBUG=true
-      - ENVIRONMENT=development
-      - LOG_LEVEL=INFO
-      - LOG_FORMAT=json
-      - INFLUXDB_HOST=influxdb
-      - INFLUXDB_PORT=8086
-      - INFLUXDB_TOKEN=your_influxdb_token_here
-      - INFLUXDB_ORG=opsbuddy
-      - INFLUXDB_DATABASE=opsbuddy
-      - INFLUXDB_URL=http://influxdb:8086
-    depends_on:
-      - influxdb
-    restart: unless-stopped
-    networks:
-      - opsbuddy-network
+  # Timeseries DB Service - Not implemented yet
+  # timeseries-service:
+  #   build: ./services/timeseries-service
+  #   container_name: opsbuddy-timeseries-service
+  #   ports:
+  #     - "8004:8004"
+  #   environment:
+  #     - SERVICE_HOST=0.0.0.0
+  #     - SERVICE_PORT=8004
+  #     - DEBUG=true
+  #     - ENVIRONMENT=development
+  #     - LOG_LEVEL=INFO
+  #     - LOG_FORMAT=json
+  #     - INFLUXDB_HOST=influxdb
+  #     - INFLUXDB_PORT=8086
+  #     - INFLUXDB_TOKEN=your_influxdb_token_here
+  #     - INFLUXDB_ORG=opsbuddy
+  #     - INFLUXDB_DATABASE=opsbuddy
+  #     - INFLUXDB_URL=http://influxdb:8086
+  #   depends_on:
+  #     - influxdb
+  #   restart: unless-stopped
+  #   networks:
+  #     - opsbuddy-network
 
   # InfluxDB 2.x
   influxdb:
@@ -155,6 +153,29 @@ services:
     volumes:
       - influxdb_data:/var/lib/influxdb2
       - influxdb_config:/etc/influxdb2
+    restart: unless-stopped
+    networks:
+      - opsbuddy-network
+
+  # UI Service
+  ui-service:
+    build: ./services/ui-service
+    container_name: opsbuddy-ui-service
+    ports:
+      - "3000:3000"
+    environment:
+      - SERVICE_HOST=0.0.0.0
+      - SERVICE_PORT=3000
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+      - GATEWAY_URL=http://api-gateway:8000
+      - FILE_SERVICE_URL=http://file-service:8001
+      - UTILITY_SERVICE_URL=http://utility-service:8002
+    depends_on:
+      - api-gateway
+      - file-service
+      - utility-service
     restart: unless-stopped
     networks:
       - opsbuddy-network

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Operations - OpsBuddy</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-robot me-2"></i>OpsBuddy
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">
+                            <i class="fas fa-home me-1"></i>Home
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/files">
+                            <i class="fas fa-file-alt me-1"></i>File Service
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/utility">
+                            <i class="fas fa-cogs me-1"></i>Utility Service
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <div class="row">
+            <div class="col-12">
+                <h2 class="mb-4">
+                    <i class="fas fa-terminal text-primary me-2"></i>System Operations
+                </h2>
+            </div>
+        </div>
+
+        <!-- Service Status Dashboard -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-tachometer-alt me-2"></i>Service Status Dashboard
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3" id="servicesStatus">
+                            <!-- Service status cards will be loaded here -->
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-outline-primary btn-sm" onclick="refreshAllServices()">
+                                <i class="fas fa-sync-alt me-1"></i>Refresh All Status
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Commands -->
+        <div class="row mb-4">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-terminal me-2"></i>System Commands
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <div class="row g-2">
+                                <div class="col-md-8">
+                                    <input type="text" class="form-control" id="systemCommand" placeholder="Enter system command">
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="number" class="form-control" id="commandTimeout" value="30" min="1" max="300" placeholder="Timeout">
+                                </div>
+                                <div class="col-md-2">
+                                    <button class="btn btn-success w-100" onclick="executeSystemCommand()">
+                                        <i class="fas fa-play me-1"></i>Execute
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Commands -->
+                        <div class="mb-3">
+                            <label class="form-label">Quick Commands:</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button class="btn btn-outline-secondary btn-sm" onclick="setQuickCommand('ls -la')">
+                                    <i class="fas fa-list me-1"></i>ls -la
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="setQuickCommand('pwd')">
+                                    <i class="fas fa-folder me-1"></i>pwd
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="setQuickCommand('whoami')">
+                                    <i class="fas fa-user me-1"></i>whoami
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="setQuickCommand('df -h')">
+                                    <i class="fas fa-chart-pie me-1"></i>df -h
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="setQuickCommand('free -h')">
+                                    <i class="fas fa-memory me-1"></i>free -h
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="setQuickCommand('ps aux | head -10')">
+                                    <i class="fas fa-tasks me-1"></i>ps top 10
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Command Output -->
+                        <div id="systemCommandOutput" class="mt-3" style="display: none;">
+                            <h6>Command Output:</h6>
+                            <pre class="bg-dark text-light p-3 rounded"><code id="systemCommandOutputContent"></code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Information -->
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-info-circle me-2"></i>System Info
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-outline-info w-100 mb-3" onclick="getDetailedSystemInfo()">
+                            <i class="fas fa-server me-2"></i>Get Detailed System Info
+                        </button>
+
+                        <div id="detailedSystemInfo" style="display: none;">
+                            <pre class="bg-light p-3 rounded small"><code id="detailedSystemInfoContent"></code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Service Health Checks -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-warning">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-heartbeat me-2"></i>Individual Service Health
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-primary w-100" onclick="checkGateway()">
+                                    <i class="fas fa-route me-1"></i>Check Gateway
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-success w-100" onclick="checkFileService()">
+                                    <i class="fas fa-file me-1"></i>Check File Service
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-info w-100" onclick="checkUtilityService()">
+                                    <i class="fas fa-cog me-1"></i>Check Utility Service
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-secondary w-100" onclick="checkUIService()">
+                                    <i class="fas fa-desktop me-1"></i>Check UI Service
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Health Check Results -->
+                        <div id="healthResults" class="mt-3" style="display: none;">
+                            <h6>Health Check Results:</h6>
+                            <div id="healthResultsContent"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Response Display -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-terminal me-2"></i>Response Log
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="responseLog" class="border rounded p-3 bg-dark text-light" style="max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.875rem;">
+                            <p class="text-muted mb-0">Responses will appear here...</p>
+                        </div>
+                        <div class="mt-2">
+                            <button class="btn btn-outline-secondary btn-sm" onclick="clearLog()">
+                                <i class="fas fa-trash me-1"></i>Clear Log
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="/static/js/system.js"></script>
+</body>
+</html>

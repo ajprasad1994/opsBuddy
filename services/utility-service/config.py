@@ -36,15 +36,25 @@ class Settings(BaseSettings):
     # Utility Service Configuration
     command_timeout: int = 30
     max_command_output: int = 1024 * 1024  # 1MB
-    allowed_commands: List[str] = ["ls", "ps", "df", "free", "uptime"]
+    allowed_commands: Optional[List[str]] = None
     
     @property
     def allowed_commands_list(self) -> List[str]:
         """Get allowed commands from environment or use default."""
         env_commands = os.getenv("ALLOWED_COMMANDS")
-        if env_commands:
-            return [cmd.strip() for cmd in env_commands.split(",")]
-        return self.allowed_commands
+        if env_commands and env_commands.strip():
+            try:
+                # Try to parse as JSON first
+                import json
+                return json.loads(env_commands)
+            except (json.JSONDecodeError, ValueError):
+                # Fall back to comma-separated format
+                return [cmd.strip() for cmd in env_commands.split(",") if cmd.strip()]
+
+        # Use configured default or fallback
+        if self.allowed_commands:
+            return self.allowed_commands
+        return ["ls", "ps", "df", "free", "uptime"]
     
     model_config = {
         "env_file": ".env",

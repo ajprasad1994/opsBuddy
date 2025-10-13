@@ -239,7 +239,7 @@ async def route_requests(request: Request, call_next):
     method = request.method
     
     # Skip routing for gateway-specific endpoints
-    if path in ["/health", "/status", "/docs", "/redoc", "/openapi.json"]:
+    if path in ["/", "/health", "/status", "/api", "/docs", "/redoc", "/openapi.json"]:
         return await call_next(request)
     
     # Determine target service

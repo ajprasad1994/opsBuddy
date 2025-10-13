@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Service - OpsBuddy</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-robot me-2"></i>OpsBuddy
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">
+                            <i class="fas fa-home me-1"></i>Home
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/utility">
+                            <i class="fas fa-cogs me-1"></i>Utility Service
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/system">
+                            <i class="fas fa-terminal me-1"></i>System
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <div class="row">
+            <div class="col-12">
+                <h2 class="mb-4">
+                    <i class="fas fa-file-alt text-primary me-2"></i>File Service
+                </h2>
+            </div>
+        </div>
+
+        <!-- File Upload Section -->
+        <div class="row mb-4">
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-upload me-2"></i>Upload File
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="uploadForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="fileInput" class="form-label">Select File</label>
+                                <input type="file" class="form-control" id="fileInput" name="file" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="tagsInput" class="form-label">Tags (JSON format)</label>
+                                <input type="text" class="form-control" id="tagsInput" name="tags"
+                                       placeholder='{"category": "test", "type": "sample"}'>
+                            </div>
+                            <div class="mb-3">
+                                <label for="metadataInput" class="form-label">Metadata (JSON format)</label>
+                                <input type="text" class="form-control" id="metadataInput" name="metadata"
+                                       placeholder='{"description": "Test file", "author": "user"}'>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload me-2"></i>Upload File
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- File List Section -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-list me-2"></i>File List
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <button class="btn btn-outline-primary btn-sm" onclick="loadFiles()">
+                                <i class="fas fa-sync-alt me-1"></i>Refresh List
+                            </button>
+                        </div>
+                        <div id="filesList" class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                            <p class="text-muted mb-0">Click refresh to load files...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Operations -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-search me-2"></i>File Operations
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="fileIdInput" class="form-label">File ID</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="fileIdInput" placeholder="Enter file ID">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="getFileInfo()">
+                                        <i class="fas fa-info-circle me-1"></i>Get Info
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">&nbsp;</label>
+                                <div class="d-grid">
+                                    <button class="btn btn-outline-danger" onclick="deleteFile()">
+                                        <i class="fas fa-trash me-1"></i>Delete File
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- File Info Display -->
+                        <div id="fileInfo" class="mt-3" style="display: none;">
+                            <h6>File Information:</h6>
+                            <pre class="bg-light p-3 rounded"><code id="fileInfoContent"></code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Response Display -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-terminal me-2"></i>Response Log
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="responseLog" class="border rounded p-3 bg-dark text-light" style="max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.875rem;">
+                            <p class="text-muted mb-0">Responses will appear here...</p>
+                        </div>
+                        <div class="mt-2">
+                            <button class="btn btn-outline-secondary btn-sm" onclick="clearLog()">
+                                <i class="fas fa-trash me-1"></i>Clear Log
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="/static/js/files.js"></script>
+</body>
+</html>
