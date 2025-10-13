@@ -27,8 +27,12 @@ async function loadConfigurations() {
     configsList.innerHTML = '<div class="text-center"><div class="loading me-2"></div>Loading configurations...</div>';
 
     try {
-        const response = await axios.get('/api/configs');
-        displayConfigurations(response.data.configs || []);
+        const response = await fetch('/api/configs');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        displayConfigurations(data.configs || []);
     } catch (error) {
         console.error('Error loading configurations:', error);
         configsList.innerHTML = '<p class="text-danger mb-0">Error loading configurations</p>';
@@ -87,13 +91,18 @@ async function createConfiguration() {
         formData.append('value', value);
         formData.append('description', description);
 
-        const response = await axios.post('/api/configs', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data'
-            }
+        const response = await fetch('/api/configs', {
+            method: 'POST',
+            body: formData
         });
 
-        logResponse('Configuration Created', response.data);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const responseData = await response.json();
+
+        logResponse('Configuration Created', responseData);
         showSuccess('Configuration created successfully');
 
         // Reset form
@@ -121,9 +130,13 @@ async function getSystemInfo() {
     if (!systemInfoDiv || !systemInfoContent) return;
 
     try {
-        const response = await axios.get('/api/system/info');
-        displaySystemInfo(response.data);
-        logResponse('System Info Retrieved', response.data);
+        const response = await fetch('/api/system/info');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        displaySystemInfo(data);
+        logResponse('System Info Retrieved', data);
     } catch (error) {
         console.error('Error getting system info:', error);
         const errorMessage = error.response?.data?.detail || error.message || 'Failed to get system info';
@@ -172,14 +185,18 @@ async function executeCommand() {
         formData.append('command', command);
         formData.append('timeout', timeout || 30);
 
-        const response = await axios.post('/api/system/execute', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data'
-            }
+        const response = await fetch('/api/system/execute', {
+            method: 'POST',
+            body: formData
         });
 
-        displayCommandOutput(response.data);
-        logResponse('Command Executed', response.data);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const responseData = await response.json();
+        displayCommandOutput(responseData);
+        logResponse('Command Executed', responseData);
 
         // Clear command input
         document.getElementById('commandInput').value = '';

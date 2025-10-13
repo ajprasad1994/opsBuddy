@@ -36,13 +36,17 @@ async function handleFileUpload(e) {
     submitButton.disabled = true;
 
     try {
-        const response = await axios.post('/api/files/upload', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data'
-            }
+        const response = await fetch('/api/files/upload', {
+            method: 'POST',
+            body: formData
         });
 
-        logResponse('File Upload Success', response.data);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const responseData = await response.json();
+        logResponse('File Upload Success', responseData);
         showSuccess('File uploaded successfully');
 
         // Reset form
@@ -70,8 +74,12 @@ async function loadFiles() {
     filesList.innerHTML = '<div class="text-center"><div class="loading me-2"></div>Loading files...</div>';
 
     try {
-        const response = await axios.get('/api/files');
-        displayFiles(response.data.files || []);
+        const response = await fetch('/api/files');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        displayFiles(data.files || []);
     } catch (error) {
         console.error('Error loading files:', error);
         filesList.innerHTML = '<p class="text-danger mb-0">Error loading files</p>';
@@ -130,9 +138,13 @@ async function getFileInfo(fileId = null) {
     }
 
     try {
-        const response = await axios.get(`/api/files/${fileId}`);
-        displayFileInfo(response.data);
-        logResponse('File Info Retrieved', response.data);
+        const response = await fetch(`/api/files/${fileId}`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        displayFileInfo(data);
+        logResponse('File Info Retrieved', data);
     } catch (error) {
         console.error('Error getting file info:', error);
         const errorMessage = error.response?.data?.detail || error.message || 'Failed to get file info';
@@ -170,8 +182,16 @@ async function deleteFile(fileId = null) {
     }
 
     try {
-        const response = await axios.delete(`/api/files/${fileId}`);
-        logResponse('File Deleted', response.data);
+        const response = await fetch(`/api/files/${fileId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const responseData = await response.json();
+        logResponse('File Deleted', responseData);
         showSuccess('File deleted successfully');
 
         // Clear file info display

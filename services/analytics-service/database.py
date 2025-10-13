@@ -147,33 +147,26 @@ class DatabaseManager:
             return []
 
         try:
-            # Build Flux query
-            query_parts = ['from(bucket: "opsbuddy-logs")']
-
-            # Add time range
-            if start_time:
-                query_parts.append(f'start: {start_time}')
-            else:
-                # Default to last 24 hours
+            # Set default time range if not provided
+            if not start_time:
                 start_time = (datetime.utcnow() - timedelta(hours=24)).isoformat() + "Z"
-                query_parts.append(f'start: {start_time}')
+            if not end_time:
+                end_time = datetime.utcnow().isoformat() + "Z"
 
-            if end_time:
-                query_parts.append(f'stop: {end_time}')
+            # Build Flux query - correct syntax
+            flux_query = f'''
+            from(bucket: "opsbuddy-logs")
+            |> range(start: {start_time}, stop: {end_time})
+            '''
 
             # Add filters
             if filters:
                 for key, value in filters.items():
-                    query_parts.append(f'filter(fn: (r) => r.{key} == "{value}")')
+                    flux_query += f'|> filter(fn: (r) => r.{key} == "{value}")\n'
 
-            # Add range and limit
-            query_parts.append(f'range(start: -24h)')
-            query_parts.append(f'limit(n: {min(limit, settings.max_query_limit)})')
-
-            # Sort by time descending
-            query_parts.append('sort(columns: ["_time"], desc: true)')
-
-            flux_query = " |> ".join(query_parts)
+            # Add limit and sort
+            flux_query += f'|> limit(n: {min(limit, settings.max_query_limit)})\n'
+            flux_query += '|> sort(columns: ["_time"], desc: true)'
 
             logger.debug(f"Executing Flux query: {flux_query}")
 
@@ -223,43 +216,40 @@ class DatabaseManager:
             return []
 
         try:
-            # Build Flux query for metrics
-            query_parts = [f'from(bucket: "opsbuddy-metrics")']
-
-            # Add time range
-            if start_time:
-                query_parts.append(f'start: {start_time}')
-            else:
+            # Set default time range if not provided
+            if not start_time:
                 start_time = (datetime.utcnow() - timedelta(hours=1)).isoformat() + "Z"
-                query_parts.append(f'start: {start_time}')
+            if not end_time:
+                end_time = datetime.utcnow().isoformat() + "Z"
 
-            if end_time:
-                query_parts.append(f'stop: {end_time}')
+            # Build Flux query - correct syntax
+            flux_query = f'''
+            from(bucket: "opsbuddy-metrics")
+            |> range(start: {start_time}, stop: {end_time})
+            '''
 
             # Add service filter if specified
             if service:
-                query_parts.append(f'filter(fn: (r) => r.service == "{service}")')
+                flux_query += f'|> filter(fn: (r) => r.service == "{service}")\n'
 
             # Add metric filter
-            query_parts.append(f'filter(fn: (r) => r._field == "{metric}")')
+            flux_query += f'|> filter(fn: (r) => r._field == "{metric}")\n'
 
             # Add aggregation
             if aggregation == "count":
-                query_parts.append("aggregateWindow(every: 1m, fn: count)")
+                flux_query += '|> aggregateWindow(every: 1m, fn: count)\n'
             elif aggregation == "sum":
-                query_parts.append("aggregateWindow(every: 1m, fn: sum)")
+                flux_query += '|> aggregateWindow(every: 1m, fn: sum)\n'
             elif aggregation == "min":
-                query_parts.append("aggregateWindow(every: 1m, fn: min)")
+                flux_query += '|> aggregateWindow(every: 1m, fn: min)\n'
             elif aggregation == "max":
-                query_parts.append("aggregateWindow(every: 1m, fn: max)")
+                flux_query += '|> aggregateWindow(every: 1m, fn: max)\n'
             else:  # mean
-                query_parts.append("aggregateWindow(every: 1m, fn: mean)")
+                flux_query += '|> aggregateWindow(every: 1m, fn: mean)\n'
 
             # Group by if specified
             if group_by:
-                query_parts.append(f'group(columns: ["{group_by}"])')
-
-            flux_query = " |> ".join(query_parts)
+                flux_query += f'|> group(columns: ["{group_by}"])\n'
 
             logger.debug(f"Executing metrics query: {flux_query}")
 
@@ -300,7 +290,8 @@ class DatabaseManager:
             end_time = datetime.utcnow()
             start_time = end_time - timedelta(hours=1)
 
-            query = f'''
+            # Build Flux query for service metrics
+            flux_query = f'''
             from(bucket: "opsbuddy-logs")
             |> range(start: {start_time.isoformat()}Z, stop: {end_time.isoformat()}Z)
             |> group(columns: ["service", "level"])
@@ -308,7 +299,8 @@ class DatabaseManager:
             |> group(columns: ["service"])
             '''
 
-            result = self._query_api.query(query, org=settings.influxdb_org)
+            logger.debug(f"Executing service metrics query: {flux_query}")
+            result = self._query_api.query(flux_query, org=settings.influxdb_org)
 
             # Process results
             service_metrics = {}
@@ -354,7 +346,7 @@ class DatabaseManager:
             start_time = end_time - timedelta(hours=24)
 
             # Query for overall statistics
-            query = f'''
+            flux_query = f'''
             from(bucket: "opsbuddy-logs")
             |> range(start: {start_time.isoformat()}Z, stop: {end_time.isoformat()}Z)
             |> group(columns: ["service"])
@@ -362,7 +354,8 @@ class DatabaseManager:
             |> sum()
             '''
 
-            result = self._query_api.query(query, org=settings.influxdb_org)
+            logger.debug(f"Executing statistics query: {flux_query}")
+            result = self._query_api.query(flux_query, org=settings.influxdb_org)
 
             # Process results
             total_logs = 0
@@ -377,14 +370,15 @@ class DatabaseManager:
                     total_logs += count
 
             # Get error rate
-            error_query = f'''
+            error_flux_query = f'''
             from(bucket: "opsbuddy-logs")
             |> range(start: {start_time.isoformat()}Z, stop: {end_time.isoformat()}Z)
             |> filter(fn: (r) => r.level == "ERROR")
             |> count()
             '''
 
-            error_result = self._query_api.query(error_query, org=settings.influxdb_org)
+            logger.debug(f"Executing error count query: {error_flux_query}")
+            error_result = self._query_api.query(error_flux_query, org=settings.influxdb_org)
             error_count = 0
 
             for table in error_result:

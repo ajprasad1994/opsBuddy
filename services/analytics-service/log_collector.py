@@ -40,8 +40,13 @@ class LogCollector:
 
         logger.info("Starting log collection service...")
 
-        # Initialize service endpoints
+        # Initialize service endpoints (disabled for now)
         self._initialize_services()
+
+        # Don't start collection if no services are configured
+        if not self.services:
+            logger.info("No services configured for log collection - running in receive-only mode")
+            return
 
         # Start collection task
         self.is_running_flag = True
@@ -71,36 +76,10 @@ class LogCollector:
 
     def _initialize_services(self):
         """Initialize service endpoints for log collection."""
-        self.services = {
-            "gateway": {
-                "url": f"{settings.service_urls['gateway']}/logs",
-                "health_url": f"{settings.service_urls['gateway']}/health",
-                "last_collection": None,
-                "errors": 0,
-                "logs_collected": 0
-            },
-            "file-service": {
-                "url": f"{settings.service_urls['file-service']}/logs",
-                "health_url": f"{settings.service_urls['file-service']}/health",
-                "last_collection": None,
-                "errors": 0,
-                "logs_collected": 0
-            },
-            "utility-service": {
-                "url": f"{settings.service_urls['utility-service']}/logs",
-                "health_url": f"{settings.service_urls['utility-service']}/health",
-                "last_collection": None,
-                "errors": 0,
-                "logs_collected": 0
-            },
-            "ui-service": {
-                "url": f"{settings.service_urls['ui-service']}/logs",
-                "health_url": f"{settings.service_urls['ui-service']}/health",
-                "last_collection": None,
-                "errors": 0,
-                "logs_collected": 0
-            }
-        }
+        # For now, disable automatic log collection from other services
+        # since they don't have /logs endpoints. Logs should be sent directly to Analytics service.
+        self.services = {}
+        logger.info("Log collection from other services disabled - services should send logs directly to Analytics service")
 
     async def _collection_loop(self):
         """Main collection loop."""

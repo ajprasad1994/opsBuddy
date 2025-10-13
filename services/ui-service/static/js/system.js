@@ -1,6 +1,4 @@
 // System Operations JavaScript for OpsBuddy UI
-
-// Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     loadServicesStatus();
     setupEventListeners();
@@ -9,11 +7,15 @@ document.addEventListener('DOMContentLoaded', function() {
 // Load all services status
 async function loadServicesStatus() {
     try {
-        const response = await axios.get('/api/services/status');
-        displayServicesStatus(response.data);
+        const response = await fetch('/api/services/status');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        displayServicesStatus(data);
     } catch (error) {
         console.error('Error loading services status:', error);
-        showError('Failed to load services status');
+        showError(`Failed to load services status: ${error.message}`);
     }
 }
 
@@ -22,27 +24,67 @@ function displayServicesStatus(services) {
     const container = document.getElementById('servicesStatus');
     if (!container) return;
 
-    container.innerHTML = Object.entries(services).map(([serviceName, service]) => {
-        const statusClass = service.status === 'healthy' ? 'success' :
-                           service.status === 'unhealthy' ? 'danger' : 'warning';
+    // Clear existing content
+    container.innerHTML = '';
 
-        return `
-            <div class="col-md-6 mb-3">
-                <div class="service-status-card ${service.status}">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="mb-1">${formatServiceName(serviceName)}</h6>
-                            <small class="text-muted">
-                                Status: <strong>${service.status.toUpperCase()}</strong>
-                            </small>
-                        </div>
-                        <span class="status-indicator status-${service.status}"></span>
+    // Create service status cards for each service
+    Object.entries(services).forEach(([serviceName, service]) => {
+        // Handle different response formats
+        let status = 'unknown';
+        let statusText = 'Unknown';
+        let errorMessage = '';
+
+        if (serviceName === 'gateway' && service.response) {
+            // Gateway has a different response structure
+            if (service.response.services) {
+                const gatewayServices = service.response.services;
+                const hasUnhealthy = Object.values(gatewayServices).some(svc => svc.status === 'unhealthy');
+                status = hasUnhealthy ? 'degraded' : 'healthy';
+                statusText = hasUnhealthy ? 'DEGRADED' : 'HEALTHY';
+                errorMessage = service.response.unhealthy_services ?
+                    `Unhealthy: ${service.response.unhealthy_services.join(', ')}` : '';
+            } else {
+                status = service.status || 'unknown';
+                statusText = status.toUpperCase();
+            }
+        } else if (service.response && service.response.status) {
+            status = service.response.status;
+            statusText = service.response.status.toUpperCase();
+        } else if (service.status) {
+            status = service.status;
+            statusText = service.status.toUpperCase();
+        }
+
+        const statusClass = status === 'healthy' ? 'success' :
+                            status === 'unhealthy' ? 'danger' : 'warning';
+
+        // Map service names to display names and format them properly
+        const displayName = formatServiceName(serviceName);
+
+        const cardDiv = document.createElement('div');
+        cardDiv.className = 'col-md-6 mb-3';
+        cardDiv.innerHTML = `
+            <div class="service-status-card ${status} clickable" onclick="checkIndividualService('${serviceName}', '${displayName}')" style="cursor: pointer;" title="Click to check ${displayName} health">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">${displayName}</h6>
+                        <small class="text-muted">
+                            Status: <strong>${statusText}</strong>
+                        </small>
                     </div>
-                    ${service.error ? `<small class="text-danger">${service.error}</small>` : ''}
+                    <span class="status-indicator status-${status}"></span>
                 </div>
+                ${errorMessage ? `<small class="text-warning">${errorMessage}</small>` : ''}
             </div>
         `;
-    }).join('');
+
+        container.appendChild(cardDiv);
+    });
+
+    // Ensure we have at least some content
+    if (container.children.length === 0) {
+        container.innerHTML = '<div class="col-12"><div class="alert alert-warning">No service status data available</div></div>';
+    }
 }
 
 // Setup event listeners
@@ -80,23 +122,26 @@ async function executeSystemCommand() {
         formData.append('command', command);
         formData.append('timeout', timeout || 30);
 
-        const response = await axios.post('/api/system/execute', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data'
-            }
+        const response = await fetch('/api/system/execute', {
+            method: 'POST',
+            body: formData
         });
 
-        displaySystemCommandOutput(response.data);
-        logResponse('System Command Executed', response.data);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const responseData = await response.json();
+
+        displaySystemCommandOutput(responseData);
+        logResponse('System Command Executed', responseData);
 
         // Clear command input
         document.getElementById('systemCommand').value = '';
 
     } catch (error) {
-        console.error('Error executing system command:', error);
-        const errorMessage = error.response?.data?.detail || error.message || 'Failed to execute command';
+        const errorMessage = error.message || 'Failed to execute command';
         showError(`Command execution failed: ${errorMessage}`);
-        logResponse('System Command Error', { error: errorMessage, command: command.substring(0, 100) + '...' });
     } finally {
         button.innerHTML = originalText;
         button.disabled = false;
@@ -137,14 +182,16 @@ async function getDetailedSystemInfo() {
     button.disabled = true;
 
     try {
-        const response = await axios.get('/api/system/info');
-        displayDetailedSystemInfo(response.data);
-        logResponse('Detailed System Info Retrieved', response.data);
+        const response = await fetch('/api/system/info');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        displayDetailedSystemInfo(data);
+        logResponse('Detailed System Info Retrieved', data);
     } catch (error) {
-        console.error('Error getting detailed system info:', error);
-        const errorMessage = error.response?.data?.detail || error.message || 'Failed to get system info';
+        const errorMessage = error.message || 'Failed to get system info';
         showError(`Failed to get system info: ${errorMessage}`);
-        logResponse('System Info Error', { error: errorMessage });
     } finally {
         button.innerHTML = originalText;
         button.disabled = false;
@@ -179,6 +226,10 @@ async function checkUIService() {
     await checkIndividualService('ui-service', 'UI Service');
 }
 
+async function checkAnalyticsService() {
+    await checkIndividualService('analytics-service', 'Analytics Service');
+}
+
 // Check individual service
 async function checkIndividualService(serviceName, displayName) {
     try {
@@ -193,22 +244,66 @@ async function checkIndividualService(serviceName, displayName) {
             case 'utility-service':
                 url = `${SERVICE_URLS['utility-service']}/health`;
                 break;
+            case 'analytics-service':
+                url = `${SERVICE_URLS['analytics-service']}/health`;
+                break;
             case 'ui-service':
                 url = '/health';
                 break;
+            default:
+                throw new Error(`Unknown service: ${serviceName}`);
         }
 
-        const response = await axios.get(url);
-        const status = response.data.status === 'healthy' || response.data.status === 'running' ? 'healthy' : 'unhealthy';
+        const response = await fetch(url, {
+            headers: {
+                'Accept': 'application/json',
+            }
+        });
 
-        displayHealthResult(displayName, status, response.data);
-        logResponse(`${displayName} Health Check`, response.data);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const status = data.status === 'healthy' || data.status === 'running' ? 'healthy' : 'unhealthy';
+
+        displayHealthResult(displayName, status, data);
+        logResponse(`${displayName} Health Check`, data);
 
     } catch (error) {
-        console.error(`Error checking ${serviceName}:`, error);
-        const errorMessage = error.response?.data?.detail || error.message || 'Health check failed';
-        displayHealthResult(displayName, 'error', { error: errorMessage });
-        logResponse(`${displayName} Health Check Error`, { error: errorMessage });
+        let errorMessage = 'Health check failed';
+        let userFriendlyMessage = '';
+
+        if (error.code === 'ECONNREFUSED') {
+            errorMessage = 'Connection refused - service may not be running';
+            userFriendlyMessage = `Cannot connect to ${displayName}. Please ensure the service is running and accessible.`;
+        } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNRESET') {
+            errorMessage = 'Service not found - check service URL or network';
+            userFriendlyMessage = `${displayName} is not accessible. Check if the service is running on the correct port.`;
+        } else if (error.response) {
+            if (error.response.status === 404) {
+                errorMessage = 'Service endpoint not found';
+                userFriendlyMessage = `${displayName} health endpoint not found. Service may not be properly configured.`;
+            } else if (error.response.status >= 500) {
+                errorMessage = `Service error: ${error.response.status}`;
+                userFriendlyMessage = `${displayName} is experiencing issues (HTTP ${error.response.status}).`;
+            } else {
+                errorMessage = `HTTP ${error.response.status}: ${error.response.statusText}`;
+                userFriendlyMessage = `${displayName} returned an error: ${error.response.statusText}`;
+            }
+        } else if (error.message && error.message.includes('timeout')) {
+            errorMessage = 'Request timeout - service may be overloaded';
+            userFriendlyMessage = `${displayName} is not responding. The service may be busy or down.`;
+        } else {
+            errorMessage = error.message || 'Unknown error occurred';
+            userFriendlyMessage = `An unexpected error occurred while checking ${displayName}.`;
+        }
+
+        displayHealthResult(displayName, 'error', {
+            error: errorMessage,
+            userMessage: userFriendlyMessage,
+            details: `URL: ${SERVICE_URLS[serviceName] || 'unknown'}`
+        });
     }
 }
 
@@ -221,14 +316,40 @@ function displayHealthResult(serviceName, status, data) {
         const statusClass = status === 'healthy' ? 'success' : status === 'error' ? 'danger' : 'warning';
         const timestamp = new Date().toLocaleTimeString();
 
-        resultsContent.innerHTML = `
-            <div class="alert alert-${statusClass} mb-2">
-                <strong>${serviceName}:</strong> ${status.toUpperCase()}
-                ${data.error ? `<br><small>Error: ${data.error}</small>` : ''}
-                <br><small class="text-muted">Checked at ${timestamp}</small>
+        // Create new result entry
+        const resultEntry = document.createElement('div');
+        resultEntry.className = `alert alert-${statusClass} mb-2`;
+        const errorHtml = data && data.error ? `<br><small class="text-warning">Error: ${data.error}</small>` : '';
+        const userMessageHtml = data && data.userMessage ? `<br><small class="text-info">${data.userMessage}</small>` : '';
+        const detailsHtml = data && data.details ? `<br><small class="text-muted">${data.details}</small>` : '';
+
+        resultEntry.innerHTML = `
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <strong>${serviceName}:</strong> ${status.toUpperCase()}
+                    ${errorHtml}
+                    ${userMessageHtml}
+                    ${detailsHtml}
+                </div>
+                <small class="text-muted">${timestamp}</small>
             </div>
         `;
 
+        // Clear initial message if present
+        const existingContent = resultsContent.innerHTML;
+        if (existingContent.includes('No health checks performed yet') || existingContent.includes('No health checks performed yet...')) {
+            resultsContent.innerHTML = '';
+        }
+
+        // Remove any previous entry for the same service
+        const existingEntries = resultsContent.querySelectorAll('.alert');
+        existingEntries.forEach(entry => {
+            if (entry.textContent.includes(`${serviceName}:`)) {
+                entry.remove();
+            }
+        });
+
+        resultsContent.appendChild(resultEntry);
         resultsDiv.style.display = 'block';
     }
 }
@@ -254,8 +375,28 @@ async function refreshAllServices() {
 
 // Format service name for display
 function formatServiceName(name) {
-    return name.split('-').map(word =>
-        word.charAt(0).toUpperCase() + word.slice(1)
+    if (!name) return 'Unknown Service';
+
+    // Handle special cases
+    const specialCases = {
+        'file-service': 'File Service',
+        'utility-service': 'Utility Service',
+        'analytics-service': 'Analytics Service',
+        'ui-service': 'UI Service',
+        'api-gateway': 'API Gateway',
+        'gateway': 'API Gateway'
+    };
+
+    if (specialCases[name.toLowerCase()]) {
+        return specialCases[name.toLowerCase()];
+    }
+
+    // Default formatting for other services
+    return name.split('-').map(word => {
+        // Handle camelCase and regular words
+        return word.replace(/([A-Z])/g, ' $1').trim();
+    }).map(word =>
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
     ).join(' ');
 }
 
@@ -311,9 +452,16 @@ function showNotification(message, type) {
     }, 5000);
 }
 
-// Service URLs (matching main.py)
+// Service URLs - Use localhost for direct access, with fallback for Docker
+function getServiceURL(port) {
+    // Get the current host (works for both IP and localhost)
+    const host = window.location.hostname || 'localhost';
+    return `http://${host}:${port}`;
+}
+
 const SERVICE_URLS = {
-    gateway: 'http://api-gateway:8000',
-    'file-service': 'http://file-service:8001',
-    'utility-service': 'http://utility-service:8002'
+    gateway: getServiceURL(8000),
+    'file-service': getServiceURL(8001),
+    'utility-service': getServiceURL(8002),
+    'analytics-service': getServiceURL(8003)
 };

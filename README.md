@@ -182,7 +182,7 @@ cd gateway
 python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
-python run.py
+python gateway.py
 ```
 
 #### 2. File Service
@@ -191,7 +191,7 @@ cd services/file-service
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-python run.py
+python main.py
 ```
 
 #### 3. Utility Service
@@ -200,7 +200,25 @@ cd services/utility-service
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-python run.py
+python main.py
+```
+
+#### 4. Analytics Service
+```bash
+cd services/analytics-service
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python main.py
+```
+
+#### 5. UI Service
+```bash
+cd services/ui-service
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python main.py
 ```
 
 ### Environment Variables

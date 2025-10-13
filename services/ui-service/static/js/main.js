@@ -9,8 +9,12 @@ document.addEventListener('DOMContentLoaded', function() {
 // Load services status
 async function loadServicesStatus() {
     try {
-        const response = await axios.get('/api/services/status');
-        displayServicesStatus(response.data);
+        const response = await fetch('/api/services/status');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        displayServicesStatus(data);
     } catch (error) {
         console.error('Error loading services status:', error);
         showError('Failed to load services status');

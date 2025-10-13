@@ -25,8 +25,12 @@ async function loadStatistics() {
     if (!statsContainer) return;
 
     try {
-        const response = await axios.get('/api/analytics/stats');
-        displayStatistics(response.data);
+        const response = await fetch('/api/analytics/stats');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        displayStatistics(data);
     } catch (error) {
         console.error('Error loading statistics:', error);
         showError('Failed to load statistics');
@@ -100,9 +104,14 @@ async function handleLogQuery(e) {
     };
 
     try {
-        const response = await axios.get('/api/analytics/logs', { params: queryData });
-        displayLogResults(response.data);
-        logResponse('Log Query Results', response.data);
+        const params = new URLSearchParams(queryData).toString();
+        const response = await fetch(`/api/analytics/logs?${params}`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        displayLogResults(data);
+        logResponse('Log Query Results', data);
     } catch (error) {
         console.error('Error querying logs:', error);
         const errorMessage = error.response?.data?.detail || error.message || 'Query failed';
@@ -167,8 +176,20 @@ async function handleManualLogEntry(e) {
     submitButton.disabled = true;
 
     try {
-        const response = await axios.post('/api/analytics/logs', logData);
-        logResponse('Manual Log Entry Sent', response.data);
+        const response = await fetch('/api/analytics/logs', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(logData)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const responseData = await response.json();
+        logResponse('Manual Log Entry Sent', responseData);
         showSuccess('Log entry sent successfully');
 
         // Reset form
@@ -196,9 +217,13 @@ async function loadMetrics() {
     if (!metricsDiv || !metricsContent) return;
 
     try {
-        const response = await axios.get('/api/analytics/metrics');
-        displayMetrics(response.data);
-        logResponse('Metrics Loaded', response.data);
+        const response = await fetch('/api/analytics/metrics');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        displayMetrics(data);
+        logResponse('Metrics Loaded', data);
     } catch (error) {
         console.error('Error loading metrics:', error);
         const errorMessage = error.response?.data?.detail || error.message || 'Failed to load metrics';
