@@ -286,14 +286,15 @@ class DatabaseManager:
             return {}
 
         try:
-            # Query for service statistics over last hour
+            # Query for service statistics over last 24 hours
             end_time = datetime.utcnow()
-            start_time = end_time - timedelta(hours=1)
+            start_time = end_time - timedelta(hours=24)
 
             # Build Flux query for service metrics
             flux_query = f'''
             from(bucket: "opsbuddy-logs")
             |> range(start: {start_time.isoformat()}Z, stop: {end_time.isoformat()}Z)
+            |> filter(fn: (r) => r._field == "message")
             |> group(columns: ["service", "level"])
             |> count()
             |> group(columns: ["service"])
@@ -304,11 +305,14 @@ class DatabaseManager:
 
             # Process results
             service_metrics = {}
+            logger.debug(f"Processing {len(list(result))} tables from query result")
             for table in result:
+                logger.debug(f"Processing table with {len(list(table.records))} records")
                 for record in table.records:
                     service = record.values.get("service")
                     level = record.values.get("level")
                     count = record.get_value()
+                    logger.debug(f"Processing: service={service}, level={level}, count={count}")
 
                     if service not in service_metrics:
                         service_metrics[service] = {
@@ -320,8 +324,9 @@ class DatabaseManager:
                         }
 
                     service_metrics[service]["total_logs"] += count
-                    if level == "ERROR":
+                    if level in ["ERROR", "CRITICAL", "FATAL"]:
                         service_metrics[service]["error_count"] += count
+                        logger.debug(f"Added {count} to error_count for {service} (level: {level})")
                     elif level == "WARNING":
                         service_metrics[service]["warning_count"] += count
                     elif level == "INFO":
@@ -329,6 +334,7 @@ class DatabaseManager:
                     elif level == "DEBUG":
                         service_metrics[service]["debug_count"] += count
 
+            logger.debug(f"Final service_metrics: {service_metrics}")
             return service_metrics
 
         except Exception as e:
@@ -373,7 +379,7 @@ class DatabaseManager:
             error_flux_query = f'''
             from(bucket: "opsbuddy-logs")
             |> range(start: {start_time.isoformat()}Z, stop: {end_time.isoformat()}Z)
-            |> filter(fn: (r) => r.level == "ERROR")
+            |> filter(fn: (r) => r.level == "ERROR" or r.level == "CRITICAL" or r.level == "FATAL")
             |> count()
             '''
 

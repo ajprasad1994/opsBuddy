@@ -275,19 +275,21 @@ async def get_service_errors(service: str, hours: int = 1):
 
 # Force error check endpoint
 @app.post("/check")
-async def force_error_check(background_tasks: BackgroundTasks):
+async def force_error_check():
     """Force an immediate error check and publish incidents."""
     try:
-        # Run error check in background
-        background_tasks.add_task(run_error_check)
+        # Run error check synchronously for debugging
+        logger.info("Starting manual error check...")
+        await run_error_check()
+        logger.info("Manual error check completed")
 
         return {
-            "message": "Error check initiated",
+            "message": "Error check completed",
             "timestamp": time.time()
         }
 
     except Exception as e:
-        logger.error(f"Failed to initiate error check: {str(e)}")
+        logger.error(f"Failed to run error check: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Service information endpoint
@@ -368,64 +370,68 @@ async def run_error_check():
     try:
         # Update last check time
         current_check = datetime.utcnow()
+        
+        # For the first check or if last_check is None, look at last hour
+        if not last_error_check:
+            # First check - look at last hour
+            query_since = (current_check - timedelta(hours=1)).replace(microsecond=0).isoformat() + "Z"
+            logger.info("First error check - looking at last hour")
+        else:
+            # Subsequent checks - look since last check
+            query_since = last_error_check.replace(microsecond=0).isoformat() + "Z"
+            logger.info(f"Subsequent error check - looking since {query_since}")
+        
         last_error_check = current_check
 
         # Query recent logs since last check
-        if last_error_check:
-            # Query errors since last check
-            recent_errors = await db_manager.query_errors_since(
-                last_error_check.replace(microsecond=0).isoformat() + "Z"
-            )
+        recent_errors = await db_manager.query_errors_since(query_since)
 
-            if recent_errors:
-                logger.info(f"Found {len(recent_errors)} new errors")
+        if recent_errors:
+            logger.info(f"Found {len(recent_errors)} new errors")
 
-                # Process each error
-                for error_log in recent_errors:
-                    # Create incident event
-                    incident_event = create_incident_event(error_log, "error_detected")
+            # Process each error
+            for error_log in recent_errors:
+                # Create incident event
+                incident_event = create_incident_event(error_log, "error_detected")
 
-                    # Publish to Redis channels
-                    await publish_incident(incident_event)
+                # Publish to Redis channels
+                await publish_incident(incident_event)
 
-                    # Publish individual error log for real-time UI updates
-                    await publish_error_log(error_log)
+                # Publish individual error log for real-time UI updates
+                await publish_error_log(error_log)
 
-                    # Log the incident
-                    log_incident(
-                        error_log.get("service", "unknown"),
-                        "error_detected",
-                        {
-                            "error_message": error_log.get("message"),
-                            "level": error_log.get("level"),
-                            "operation": error_log.get("operation")
-                        },
-                        "ERROR"
-                    )
+                # Log the incident
+                log_incident(
+                    error_log.get("service", "unknown"),
+                    "error_detected",
+                    {
+                        "error_message": error_log.get("message"),
+                        "level": error_log.get("level"),
+                        "operation": error_log.get("operation")
+                    },
+                    "ERROR"
+                )
 
-                # Create analytics update
-                service_error_counts = {}
-                for error in recent_errors:
-                    service = error.get("service", "unknown")
-                    service_error_counts[service] = service_error_counts.get(service, 0) + 1
+            # Create analytics update
+            service_error_counts = {}
+            for error in recent_errors:
+                service = error.get("service", "unknown")
+                service_error_counts[service] = service_error_counts.get(service, 0) + 1
 
-                # Publish analytics updates for each service
-                for service, count in service_error_counts.items():
-                    analytics_event = create_analytics_update(
-                        service,
-                        count,
-                        {
-                            "start": last_error_check.replace(microsecond=0).isoformat() + "Z",
-                            "end": current_check.replace(microsecond=0).isoformat() + "Z"
-                        }
-                    )
-                    await publish_analytics_update(analytics_event)
+            # Publish analytics updates for each service
+            for service, count in service_error_counts.items():
+                analytics_event = create_analytics_update(
+                    service,
+                    count,
+                    {
+                        "start": last_error_check.replace(microsecond=0).isoformat() + "Z",
+                        "end": current_check.replace(microsecond=0).isoformat() + "Z"
+                    }
+                )
+                await publish_analytics_update(analytics_event)
 
-            else:
-                logger.debug("No new errors found")
-
-        # Update last_error_check for next iteration
-        last_error_check = current_check
+        else:
+            logger.debug("No new errors found")
 
     except Exception as e:
         logger.error(f"Error during error check: {str(e)}")

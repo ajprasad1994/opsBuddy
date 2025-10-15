@@ -17,6 +17,15 @@ CORS(app, origins=app.config['CORS_ORIGINS'])
 # Initialize SocketIO
 socketio = SocketIO(app, cors_allowed_origins=app.config['SOCKETIO_CORS_ALLOWED_ORIGINS'])
 
+# Redis client for pub/sub
+redis_client = redis.Redis(
+    host=app.config['REDIS_HOST'],
+    port=app.config['REDIS_PORT'],
+    db=app.config['REDIS_DB'],
+    password=app.config['REDIS_PASSWORD'] if app.config['REDIS_PASSWORD'] else None,
+    decode_responses=True
+)
+
 @app.route('/')
 def index():
     """Serve the main React application"""
@@ -226,6 +235,73 @@ def handle_update_request(data):
     except Exception as e:
         emit('error', {'error': str(e)})
 
+# Redis pub/sub listener for real-time updates
+def redis_listener():
+    """Listen to Redis channels for real-time updates"""
+    try:
+        print("Starting Redis listener...")
+        pubsub = redis_client.pubsub()
+        pubsub.subscribe('error_logs', 'service_health', 'analytics_updates', 'incidents')
+
+        print("Redis listener subscribed to channels, listening for real-time updates...")
+
+        for message in pubsub.listen():
+            print(f"Raw message received: {message}")
+            if message['type'] == 'message':
+                try:
+                    data = json.loads(message['data'])
+                    channel = message['channel']
+
+                    print(f"Received update on {channel}: {data.get('service', 'unknown')}")
+
+                    # Handle different types of updates
+                    if channel == 'service_health':
+                        # Emit service health update to all connected clients
+                        socketio.emit('service_health_update', {
+                            'channel': channel,
+                            'data': data,
+                            'timestamp': time.time()
+                        })
+                        print(f"Emitted service_health_update for {data.get('service', 'unknown')}")
+
+                    elif channel == 'error_logs':
+                        # Emit error log update to all connected clients
+                        socketio.emit('error_log', {
+                            'channel': channel,
+                            'error': data,
+                            'timestamp': time.time()
+                        })
+                        print(f"Emitted error_log for {data.get('service', 'unknown')}")
+
+                    elif channel in ['analytics_updates', 'incidents']:
+                        # Emit incident update to all connected clients
+                        socketio.emit('incident_update', {
+                            'channel': channel,
+                            'data': data,
+                            'timestamp': time.time()
+                        })
+                        print(f"Emitted incident_update for {data.get('service', 'unknown')}")
+
+                except json.JSONDecodeError as e:
+                    print(f"Error parsing Redis message: {e}")
+                except Exception as e:
+                    print(f"Error processing Redis message: {e}")
+
+    except Exception as e:
+        print(f"Redis listener error: {e}")
+
+# Start Redis listener in background thread
+def start_redis_listener():
+    """Start the Redis listener thread"""
+    try:
+        listener_thread = threading.Thread(target=redis_listener, daemon=True)
+        listener_thread.start()
+        print("Redis listener thread started successfully")
+        return True
+    except Exception as e:
+        print(f"Failed to start Redis listener thread: {e}")
+        return False
+
 # Redis subscriber for real-time incident updates
 def redis_subscriber():
     """Background thread to listen for Redis pub/sub messages"""
@@ -293,8 +369,16 @@ def start_redis_subscriber():
     subscriber_thread.start()
     print("Redis subscriber thread started")
 
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected to SocketIO')
+    # Start Redis listener when first client connects
+    start_redis_listener()
+    emit('status', {'msg': 'Connected to opsBuddy UI'})
+
 if __name__ == '__main__':
     # Start Redis subscriber before starting the server
     start_redis_subscriber()
 
+    print("Starting UI service with SocketIO...")
     socketio.run(app, host='0.0.0.0', port=app.config['PORT'], debug=app.config['DEBUG'], allow_unsafe_werkzeug=True)

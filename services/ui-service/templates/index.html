@@ -788,6 +788,19 @@
 
         // Analytics Component - Focused on Real-time Error Logs
         const Analytics = ({ metrics, logs, incidents, loadIncidents, realtimeErrors }) => {
+            // Combine realtimeErrors and incidents data
+            const allErrors = [
+                ...realtimeErrors,
+                ...(incidents.incidents && incidents.incidents.recent_errors ? 
+                    incidents.incidents.recent_errors.map(error => ({
+                        ...error,
+                        timestamp: error.timestamp,
+                        service: error.service,
+                        level: error.level,
+                        message: error.message || 'No message available',
+                        logger: error.logger || 'unknown'
+                    })) : [])
+            ];
 
             const getServiceIcon = (service) => {
                 const icons = {
@@ -910,8 +923,8 @@
             )
             ),
 
-            // Real-time errors display
-            realtimeErrors.length > 0 ?
+            // Real-time errors display - use combined error data
+            allErrors.length > 0 ?
             React.createElement('div', {
                 style: {
                     maxHeight: '600px',
@@ -921,7 +934,7 @@
                     gap: '1rem'
                 }
             },
-            realtimeErrors.map((error, index) =>
+            allErrors.map((error, index) =>
                 React.createElement('div', {
                     key: index,
                     style: {
@@ -1058,7 +1071,7 @@
             },
             React.createElement('div', {
                 style: { fontSize: '2rem', fontWeight: 'bold', color: '#4CAF50', marginBottom: '0.5rem' }
-            }, realtimeErrors.length),
+            }, allErrors.length),
             React.createElement('div', {
                 style: { color: 'white', opacity: 0.8, fontSize: '0.9rem' }
             }, 'Total Errors Displayed')
@@ -1075,7 +1088,7 @@
             },
             React.createElement('div', {
                 style: { fontSize: '2rem', fontWeight: 'bold', color: '#2196F3', marginBottom: '0.5rem' }
-            }, new Set(realtimeErrors.map(e => e.service).filter(Boolean)).size),
+            }, new Set(allErrors.map(e => e.service).filter(Boolean)).size),
             React.createElement('div', {
                 style: { color: 'white', opacity: 0.8, fontSize: '0.9rem' }
             }, 'Services Reporting')
@@ -1092,7 +1105,7 @@
             },
             React.createElement('div', {
                 style: { fontSize: '2rem', fontWeight: 'bold', color: '#FF9800', marginBottom: '0.5rem' }
-            }, realtimeErrors.filter(e => e.level === 'CRITICAL').length),
+            }, allErrors.filter(e => e.level === 'CRITICAL').length),
             React.createElement('div', {
                 style: { color: 'white', opacity: 0.8, fontSize: '0.9rem' }
             }, 'Critical Errors')
