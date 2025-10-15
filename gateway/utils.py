@@ -235,14 +235,17 @@ def build_target_url(service_name: str, service_urls: Dict[str, str], path: str)
     base_url = service_urls.get(service_name)
     if not base_url:
         raise ValueError(f"Unknown service: {service_name}")
-    
+
     # Remove the API prefix from the path when forwarding
     if path.startswith("/api/"):
         # Extract the service-specific path
         path_parts = path.split("/", 3)  # Split into ["", "api", "service", "rest_of_path"]
-        if len(path_parts) >= 3:
-            service_path = "/" + path_parts[2]  # Get "/service"
-            remaining_path = "/" + "/".join(path_parts[3:]) if len(path_parts) > 3 else ""
-            return f"{base_url}{service_path}{remaining_path}"
-    
+        if len(path_parts) >= 4:
+            # For paths like /api/analytics/metrics, we want /metrics
+            remaining_path = "/" + "/".join(path_parts[3:])
+            return f"{base_url}{remaining_path}"
+        elif len(path_parts) >= 3:
+            # For paths like /api/analytics, use root path
+            return base_url
+
     return f"{base_url}{path}"

@@ -77,6 +77,12 @@ class GatewaySettings(BaseSettings):
                 port=int(os.getenv("ANALYTICS_SERVICE_PORT", "8003")),
                 health_endpoint="/health"
             ),
+            "incident": ServiceConfig(
+                name="incident-service",
+                host=os.getenv("INCIDENT_SERVICE_HOST", "localhost"),
+                port=int(os.getenv("INCIDENT_SERVICE_PORT", "8004")),
+                health_endpoint="/health"
+            ),
             "timeseries": ServiceConfig(
                 name="timeseries-service",
                 host=os.getenv("TIMESERIES_SERVICE_HOST", "localhost"),
@@ -98,8 +104,9 @@ class GatewaySettings(BaseSettings):
         """Get routing rules for API paths."""
         return {
             "/api/files": "file",
-            "/api/utils": "utility", 
+            "/api/utils": "utility",
             "/api/analytics": "analytics",
+            "/api/incidents": "incident",
             "/api/timeseries": "timeseries"
         }
     

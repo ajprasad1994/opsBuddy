@@ -239,7 +239,7 @@ async def route_requests(request: Request, call_next):
     method = request.method
     
     # Skip routing for gateway-specific endpoints
-    if path in ["/", "/health", "/status", "/api", "/docs", "/redoc", "/openapi.json"]:
+    if path in ["/", "/health", "/status", "/api", "/api/services", "/docs", "/redoc", "/openapi.json"]:
         return await call_next(request)
     
     # Determine target service
@@ -363,6 +363,50 @@ async def api_info():
         },
         "routing_rules": settings.routing_rules
     }
+
+
+# Services information endpoint (for frontend compatibility)
+@app.get("/api/services")
+async def get_services():
+    """Get services information for frontend compatibility."""
+    global health_checker
+
+    if not health_checker:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "Health checker not initialized",
+                "timestamp": time.time()
+            }
+        )
+
+    try:
+        service_health = await health_checker.check_all_services()
+
+        # Format services data for frontend
+        services = []
+        for service_name, health in service_health.items():
+            services.append({
+                "name": service_name.title(),
+                "port": settings.services.get(service_name, {}).port or 8000,
+                "status": health.get("status", "unknown"),
+                "response_time": health.get("response_time", 0),
+                "uptime": health.get("uptime", 0),
+                "description": f"{service_name.title()} service"
+            })
+
+        return services
+
+    except Exception as e:
+        logger.error(f"Failed to get services: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "Failed to get services",
+                "detail": str(e),
+                "timestamp": time.time()
+            }
+        )
 
 
 if __name__ == "__main__":

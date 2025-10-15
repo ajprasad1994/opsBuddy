@@ -1,325 +1,253 @@
-"""
-Main FastAPI application for OpsBuddy UI Service.
-Provides a web interface to interact with all OpsBuddy services.
-"""
-
-import time
+from flask import Flask, render_template, jsonify, request
+from flask_cors import CORS
+from flask_socketio import SocketIO, emit
+import requests
+import redis
 import json
-import aiohttp
-import asyncio
-from contextlib import asynccontextmanager
-from typing import Dict, Any, Optional
+import threading
+import time
+from config import Config
 
-from fastapi import FastAPI, Request, Form, File, UploadFile, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
+app = Flask(__name__)
+app.config.from_object(Config)
 
-# Global variables for startup/shutdown
-startup_time = None
+# Enable CORS
+CORS(app, origins=app.config['CORS_ORIGINS'])
 
-# Service URLs
-SERVICE_URLS = {
-    "gateway": "http://api-gateway:8000",
-    "file-service": "http://file-service:8001",
-    "utility-service": "http://utility-service:8002",
-    "analytics-service": "http://analytics-service:8003"
-}
+# Initialize SocketIO
+socketio = SocketIO(app, cors_allowed_origins=app.config['SOCKETIO_CORS_ALLOWED_ORIGINS'])
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan manager for startup and shutdown events."""
-    global startup_time
+@app.route('/')
+def index():
+    """Serve the main React application"""
+    return render_template('index.html')
 
-    # Startup
-    startup_time = time.time()
-    print("Starting OpsBuddy UI Service...")
+@app.route('/health')
+def health():
+    """Health check endpoint"""
+    return jsonify({"status": "healthy", "service": "ui-service"})
 
+@app.route('/api/services')
+def get_services():
+    """Get all service statuses"""
     try:
-        print("UI Service started successfully")
-    except Exception as e:
-        print(f"Failed to start UI Service: {str(e)}")
-        raise
+        response = requests.get(f"{app.config['GATEWAY_URL']}/status")
+        gateway_data = response.json()
 
-    yield
+        # Transform gateway data to UI-friendly format
+        services_data = []
+        if 'services' in gateway_data:
+            for service_name, service_info in gateway_data['services'].items():
+                services_data.append({
+                    'name': service_name.title(),
+                    'port': 8000 + (services_data.__len__() % 4),  # Assign ports based on service index
+                    'status': service_info.get('status', 'unknown'),
+                    'response_time': service_info.get('response_time', 0),
+                    'uptime': service_info.get('uptime', 0),
+                    'description': f'{service_name.title()} service for opsBuddy platform'
+                })
 
-    # Shutdown
-    print("Shutting down UI Service...")
-    print("UI Service shutdown complete")
+        return jsonify(services_data)
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
 
-
-# Create FastAPI application
-app = FastAPI(
-    title="OpsBuddy UI",
-    description="Web interface for OpsBuddy services",
-    version="1.0.0",
-    lifespan=lifespan
-)
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Add Gzip compression middleware
-app.add_middleware(GZipMiddleware, minimum_size=1000)
-
-# Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Setup templates
-templates = Jinja2Templates(directory="templates")
-
-
-async def make_request(url: str, method: str = "GET", **kwargs) -> Dict[str, Any]:
-    """Make HTTP request to services."""
+@app.route('/api/analytics/logs', methods=['POST'])
+def query_logs():
+    """Query logs from analytics service"""
     try:
-        timeout = aiohttp.ClientTimeout(total=30)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.request(method, url, **kwargs) as response:
-                if response.content_type == 'application/json':
-                    return await response.json()
+        data = request.get_json()
+        response = requests.post(f"{app.config['ANALYTICS_SERVICE_URL']}/logs/query", json=data)
+        return jsonify(response.json())
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/analytics/metrics')
+def get_metrics():
+    """Get analytics metrics"""
+    try:
+        response = requests.get(f"{app.config['ANALYTICS_SERVICE_URL']}/metrics")
+        return jsonify(response.json())
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/files')
+def list_files():
+    """List files from file service"""
+    try:
+        response = requests.get(f"{app.config['FILE_SERVICE_URL']}/files")
+        return jsonify(response.json())
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/utility/health')
+def utility_health():
+    """Get utility service health"""
+    try:
+        response = requests.get(f"{app.config['UTILITY_SERVICE_URL']}/health")
+        return jsonify(response.json())
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/incidents')
+def get_incidents():
+    """Get incidents from incident service"""
+    try:
+        response = requests.get(f"{app.config['INCIDENT_SERVICE_URL']}/incidents")
+        return jsonify(response.json())
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/errors/<service>')
+def get_service_errors(service):
+    """Get errors for specific service"""
+    try:
+        response = requests.get(f"{app.config['INCIDENT_SERVICE_URL']}/errors/{service}")
+        return jsonify(response.json())
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/services/status')
+def get_all_services_status():
+    """Get comprehensive status of all services"""
+    try:
+        # Get gateway status
+        gateway_response = requests.get(f"{app.config['GATEWAY_URL']}/status")
+        gateway_data = gateway_response.json()
+
+        # Get individual service health
+        services = {
+            'gateway': {'url': f"{app.config['GATEWAY_URL']}/health", 'port': 8000},
+            'file-service': {'url': f"{app.config['FILE_SERVICE_URL']}/health", 'port': 8001},
+            'utility-service': {'url': f"{app.config['UTILITY_SERVICE_URL']}/health", 'port': 8002},
+            'analytics-service': {'url': f"{app.config['ANALYTICS_SERVICE_URL']}/health", 'port': 8003},
+            'incident-service': {'url': f"{app.config['INCIDENT_SERVICE_URL']}/health", 'port': 8004},
+            'ui-service': {'url': '/health', 'port': 3000}
+        }
+
+        services_status = {}
+        for service_name, service_info in services.items():
+            try:
+                if service_name == 'ui-service':
+                    # Local health check
+                    status = 'healthy'
+                    response_time = 0
                 else:
-                    return {"status": response.status, "text": await response.text()}
-    except asyncio.TimeoutError:
-        return {"error": "Request timeout", "url": url}
-    except Exception as e:
-        return {"error": str(e), "url": url}
+                    response = requests.get(service_info['url'], timeout=5)
+                    data = response.json()
+                    status = data.get('status', 'unknown')
+                    response_time = response.elapsed.total_seconds() * 1000
+            except:
+                status = 'unhealthy'
+                response_time = 0
 
+            services_status[service_name] = {
+                'name': service_name.replace('-', ' ').title(),
+                'port': service_info['port'],
+                'status': status,
+                'response_time': response_time
+            }
 
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    """Home page with welcome message and service cards."""
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "title": "OpsBuddy - AI Driven Oncall Support",
-        "welcome_message": "Welcome to OpsBuddy - AI driven oncall support"
-    })
+        return jsonify({
+            'services': services_status,
+            'gateway': gateway_data,
+            'timestamp': time.time()
+        })
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
 
+# SocketIO events for real-time updates
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
+    emit('status', {'msg': 'Connected to opsBuddy UI'})
 
-@app.get("/health")
-async def health_check():
-    """Service health check endpoint."""
-    return {
-        "status": "healthy",
-        "service": "ui-service",
-        "uptime": time.time() - startup_time if startup_time else 0,
-        "timestamp": time.time()
-    }
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected')
 
-
-# File Service endpoints
-@app.get("/api/files")
-async def list_files():
-    """List files from file service."""
-    url = f"{SERVICE_URLS['file-service']}/files"
-    return await make_request(url)
-
-
-@app.post("/api/files/upload")
-async def upload_file(file: UploadFile = File(...), tags: str = Form(""), metadata: str = Form("")):
-    """Upload file to file service."""
+@socketio.on('request_update')
+def handle_update_request(data):
+    """Handle real-time update requests"""
     try:
-        # Prepare form data
-        data = aiohttp.FormData()
-        data.add_field('file', file.file, filename=file.filename, content_type=file.content_type)
+        # Get current service statuses
+        services_response = requests.get(f"{app.config['GATEWAY_URL']}/status")
+        gateway_data = services_response.json()
 
-        if tags:
-            data.add_field('tags', tags)
-        if metadata:
-            data.add_field('metadata', metadata)
+        # Transform gateway data to UI-friendly format
+        services_data = []
+        if 'services' in gateway_data:
+            for service_name, service_info in gateway_data['services'].items():
+                services_data.append({
+                    'name': service_name.title(),
+                    'port': 8000 + (len(services_data) % 4),  # Assign ports based on service index
+                    'status': service_info.get('status', 'unknown'),
+                    'response_time': service_info.get('response_time', 0),
+                    'uptime': service_info.get('uptime', 0),
+                    'description': f'{service_name.title()} service for opsBuddy platform'
+                })
 
-        url = f"{SERVICE_URLS['file-service']}/files/upload"
-        return await make_request(url, "POST", data=data)
+        # Get current metrics
+        metrics_response = requests.get(f"{app.config['ANALYTICS_SERVICE_URL']}/metrics")
+        metrics_data = metrics_response.json()
+
+        # Emit real-time update
+        emit('update', {
+            'services': services_data,
+            'metrics': metrics_data,
+            'timestamp': data.get('timestamp')
+        })
+    except Exception as e:
+        emit('error', {'error': str(e)})
+
+# Redis subscriber for real-time incident updates
+def redis_subscriber():
+    """Background thread to listen for Redis pub/sub messages"""
+    try:
+        redis_client = redis.Redis(
+            host=app.config['REDIS_HOST'],
+            port=app.config['REDIS_PORT'],
+            db=app.config['REDIS_DB'],
+            password=app.config['REDIS_PASSWORD'] if app.config['REDIS_PASSWORD'] else None,
+            decode_responses=True
+        )
+
+        # Subscribe to incident channels
+        pubsub = redis_client.pubsub()
+        pubsub.subscribe('incidents', 'error_logs', 'analytics_updates')
+
+        print("Redis subscriber started, listening for incident updates...")
+
+        for message in pubsub.listen():
+            if message['type'] == 'message':
+                try:
+                    data = json.loads(message['data'])
+                    channel = message['channel']
+
+                    print(f"Received update on {channel}: {data.get('event_type', 'unknown')}")
+
+                    # Emit real-time update to all connected clients
+                    socketio.emit('incident_update', {
+                        'channel': channel,
+                        'data': data,
+                        'timestamp': time.time()
+                    })
+                except json.JSONDecodeError as e:
+                    print(f"Error parsing Redis message: {e}")
+                except Exception as e:
+                    print(f"Error processing Redis message: {e}")
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Redis subscriber error: {e}")
 
+# Start Redis subscriber in background thread
+def start_redis_subscriber():
+    """Start the Redis subscriber thread"""
+    subscriber_thread = threading.Thread(target=redis_subscriber, daemon=True)
+    subscriber_thread.start()
+    print("Redis subscriber thread started")
 
-@app.get("/api/files/{file_id}")
-async def get_file(file_id: str):
-    """Get file metadata from file service."""
-    url = f"{SERVICE_URLS['file-service']}/files/{file_id}/metadata"
-    return await make_request(url)
+if __name__ == '__main__':
+    # Start Redis subscriber before starting the server
+    start_redis_subscriber()
 
-
-@app.delete("/api/files/{file_id}")
-async def delete_file(file_id: str):
-    """Delete file from file service."""
-    url = f"{SERVICE_URLS['file-service']}/files/{file_id}"
-    return await make_request(url, "DELETE")
-
-
-# Utility Service endpoints
-@app.get("/api/configs")
-async def list_configs():
-    """List configurations from utility service."""
-    url = f"{SERVICE_URLS['utility-service']}/configs"
-    return await make_request(url)
-
-
-@app.post("/api/configs")
-async def create_config(
-    name: str = Form(...),
-    category: str = Form(...),
-    value: str = Form(...),
-    description: str = Form("")
-):
-    """Create configuration in utility service."""
-    config_data = {
-        "name": name,
-        "category": category,
-        "value": value,
-        "description": description
-    }
-
-    url = f"{SERVICE_URLS['utility-service']}/configs"
-    return await make_request(url, "POST", json=config_data)
-
-
-@app.get("/api/system/info")
-async def get_system_info():
-    """Get system information from utility service."""
-    url = f"{SERVICE_URLS['utility-service']}/system/info"
-    return await make_request(url)
-
-
-@app.post("/api/system/execute")
-async def execute_command(command: str = Form(...), timeout: int = Form(30)):
-    """Execute system command via utility service."""
-    command_data = {
-        "command": command,
-        "timeout": timeout
-    }
-
-    url = f"{SERVICE_URLS['utility-service']}/system/execute"
-    return await make_request(url, "POST", json=command_data)
-
-
-# Analytics Service endpoints
-@app.get("/api/analytics/logs")
-async def get_analytics_logs(
-    service: str = None,
-    level: str = None,
-    limit: int = 100
-):
-    """Get logs from analytics service."""
-    params = {"limit": min(limit, 1000)}
-    if service:
-        params["service"] = service
-    if level:
-        params["level"] = level
-
-    url = f"{SERVICE_URLS['analytics-service']}/logs/query"
-    return await make_request(url, "POST", json=params)
-
-
-@app.get("/api/analytics/metrics")
-async def get_analytics_metrics():
-    """Get metrics from analytics service."""
-    url = f"{SERVICE_URLS['analytics-service']}/metrics"
-    return await make_request(url)
-
-
-@app.get("/api/analytics/stats")
-async def get_analytics_stats():
-    """Get service statistics from analytics service."""
-    url = f"{SERVICE_URLS['analytics-service']}/stats"
-    return await make_request(url)
-
-
-@app.post("/api/analytics/logs")
-async def send_log_to_analytics(
-    timestamp: str = Form(...),
-    level: str = Form(...),
-    logger_name: str = Form(...),
-    message: str = Form(...),
-    service: str = Form(...),
-    operation: str = Form(""),
-    data: str = Form("")
-):
-    """Send a log entry to analytics service."""
-    log_data = {
-        "timestamp": timestamp,
-        "level": level,
-        "logger": logger_name,
-        "message": message,
-        "service": service,
-        "operation": operation if operation else None,
-        "data": data if data else None
-    }
-
-    url = f"{SERVICE_URLS['analytics-service']}/logs/single"
-    return await make_request(url, "POST", json=log_data)
-
-
-# Service status endpoints
-@app.get("/api/services/status")
-async def get_services_status():
-    """Get status of all services."""
-    services = {}
-
-    for service_name, service_url in SERVICE_URLS.items():
-        try:
-            if service_name == "gateway":
-                url = f"{service_url}/health"
-            elif service_name == "file-service":
-                url = f"{service_url}/health"
-            elif service_name == "utility-service":
-                url = f"{service_url}/health"
-
-            result = await make_request(url)
-            services[service_name] = {
-                "status": "healthy" if "status" in result and result.get("status") in ["healthy", "running"] else "unhealthy",
-                "response": result
-            }
-        except Exception as e:
-            services[service_name] = {
-                "status": "error",
-                "error": str(e)
-            }
-
-    return services
-
-
-# UI Routes
-@app.get("/files", response_class=HTMLResponse)
-async def files_page(request: Request):
-    """File service UI page."""
-    return templates.TemplateResponse("files.html", {"request": request})
-
-
-@app.get("/utility", response_class=HTMLResponse)
-async def utility_page(request: Request):
-    """Utility service UI page."""
-    return templates.TemplateResponse("utility.html", {"request": request})
-
-
-@app.get("/system", response_class=HTMLResponse)
-async def system_page(request: Request):
-    """System operations UI page."""
-    return templates.TemplateResponse("system.html", {"request": request})
-
-
-@app.get("/analytics", response_class=HTMLResponse)
-async def analytics_page(request: Request):
-    """Analytics service UI page."""
-    return templates.TemplateResponse("analytics.html", {"request": request})
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=3000,
-        reload=True,
-        log_level="info"
-    )
+    socketio.run(app, host='0.0.0.0', port=app.config['PORT'], debug=app.config['DEBUG'], allow_unsafe_werkzeug=True)

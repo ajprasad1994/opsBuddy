@@ -20,12 +20,13 @@ services:
       - UTILITY_SERVICE_PORT=8002
       - ANALYTICS_SERVICE_HOST=analytics-service
       - ANALYTICS_SERVICE_PORT=8003
-      # - TIMESERIES_SERVICE_HOST=timeseries-service
-      # - TIMESERIES_SERVICE_PORT=8004
+      - INCIDENT_SERVICE_HOST=incident-service
+      - INCIDENT_SERVICE_PORT=8004
     depends_on:
       - file-service
       - utility-service
       - analytics-service
+      - incident-service
     restart: unless-stopped
     networks:
       - opsbuddy-network
@@ -120,6 +121,48 @@ services:
     networks:
       - opsbuddy-network
 
+  # Incident Service
+  incident-service:
+    build: ./services/incident-service
+    container_name: opsbuddy-incident-service
+    ports:
+      - "8004:8004"
+    environment:
+      - SERVICE_HOST=0.0.0.0
+      - SERVICE_PORT=8004
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+      - INFLUXDB_HOST=influxdb
+      - INFLUXDB_PORT=8086
+      - INFLUXDB_TOKEN=your_influxdb_token_here
+      - INFLUXDB_ORG=opsbuddy
+      - INFLUXDB_DATABASE=opsbuddy
+      - INFLUXDB_URL=http://influxdb:8086
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - REDIS_PASSWORD=
+      - REDIS_URL=redis://redis:6379/0
+      - MONITORING_INTERVAL=30
+      - QUERY_BATCH_SIZE=1000
+      - ERROR_RETENTION_HOURS=24
+      - REDIS_CHANNEL_INCIDENTS=incidents
+      - REDIS_CHANNEL_ERRORS=error_logs
+      - REDIS_CHANNEL_ANALYTICS=analytics_updates
+      - GATEWAY_URL=http://api-gateway:8000
+      - FILE_SERVICE_URL=http://file-service:8001
+      - UTILITY_SERVICE_URL=http://utility-service:8002
+      - ANALYTICS_SERVICE_URL=http://analytics-service:8003
+      - UI_SERVICE_URL=http://ui-service:3000
+    depends_on:
+      - influxdb
+      - redis
+    restart: unless-stopped
+    networks:
+      - opsbuddy-network
+
   # Timeseries DB Service - Not implemented yet
   # timeseries-service:
   #   build: ./services/timeseries-service
@@ -172,39 +215,43 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - SERVICE_HOST=0.0.0.0
-      - SERVICE_PORT=3000
+      - UI_SERVICE_PORT=3000
       - DEBUG=true
       - ENVIRONMENT=development
-      - LOG_LEVEL=INFO
       - GATEWAY_URL=http://api-gateway:8000
+      - ANALYTICS_SERVICE_URL=http://analytics-service:8003
       - FILE_SERVICE_URL=http://file-service:8001
       - UTILITY_SERVICE_URL=http://utility-service:8002
+      - INCIDENT_SERVICE_URL=http://incident-service:8004
+      - CORS_ORIGINS=*
+      - SOCKETIO_CORS_ALLOWED_ORIGINS=*
     depends_on:
       - api-gateway
       - file-service
       - utility-service
+      - analytics-service
+      - incident-service
     restart: unless-stopped
     networks:
       - opsbuddy-network
 
-  # Optional: Redis for caching (future enhancement)
-  # redis:
-  #   image: redis:7-alpine
-  #   container_name: opsbuddy-redis
-  #   ports:
-  #     - "6379:6379"
-  #   volumes:
-  #     - redis_data:/data
-  #   restart: unless-stopped
-  #   networks:
-  #     - opsbuddy-network
+  # Redis for pub/sub messaging
+  redis:
+    image: redis:7-alpine
+    container_name: opsbuddy-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - opsbuddy-network
 
 volumes:
   influxdb_data:
   influxdb_config:
   file_uploads:
-  # redis_data:
+  redis_data:
 
 networks:
   opsbuddy-network:

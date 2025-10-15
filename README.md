@@ -10,7 +10,9 @@ A comprehensive operations management platform built with a microservices archit
 - 📁 **File Service** (Port 8001) with full CRUD operations
 - ⚙️ **Utility Service** (Port 8002) with configuration management
 - 📊 **Analytics Service** (Port 8003) with log collection, validation, and InfluxDB storage
+- 🚨 **Incident Service** (Port 8004) with real-time error monitoring and Redis pub/sub
 - 🗄️ **InfluxDB** (Port 8086) time-series database for metrics and logs
+- 🗄️ **Redis** (Port 6379) for pub/sub messaging and real-time events
 - 🐳 **Complete Docker Integration** - Single command deployment
 - 🔧 **Interactive Testing Interface** for all service functionalities
 
@@ -26,20 +28,20 @@ OpsBuddy follows a modern microservices architecture pattern with the following 
 │                 │◄──►│                 │◄──►│   (Port 8000)   │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                                                          │
-        ┌─────────────────────────────────────────────────────────────────────┐
-        │                          Services                                   │
-        │                                                                     │
-        │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐    │
-        │  │File Service │ │Utility Svc  │ │Analytics   │ │  Web UI     │    │
-        │  │(Port 8001)  │ │(Port 8002)  │ │(Port 8003) │ │(Port 3000)  │    │
-        │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘    │
-        └─────────────────────────────────────────────────────────────────────┘
-                                 │
-                                 ▼
-                         ┌─────────────────┐
-                         │   InfluxDB      │
-                         │  (Port 8086)    │
-                         └─────────────────┘
+         ┌─────────────────────────────────────────────────────────────────────┐
+         │                          Services                                   │
+         │                                                                     │
+         │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+         │  │File Service │ │Utility Svc  │ │Analytics   │ │Incident    │ │  Web UI     │
+         │  │(Port 8001)  │ │(Port 8002)  │ │(Port 8003) │ │(Port 8004) │ │(Port 3000)  │
+         │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
+         └─────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+                    ┌─────────────────┐ ┌─────────────────┐
+                    │   InfluxDB      │ │     Redis       │
+                    │  (Port 8086)    │ │   (Port 6379)   │
+                    └─────────────────┘ └─────────────────┘
 ```
 
 ## 📋 Current Implementation Status
@@ -50,10 +52,12 @@ OpsBuddy follows a modern microservices architecture pattern with the following 
 - **📁 File Service** (Port 8001) - Full CRUD operations for file management
 - **⚙️ Utility Service** (Port 8002) - Configuration management and system operations
 - **📊 Analytics Service** (Port 8003) - Log collection, validation, and time-series storage in InfluxDB
+- **🚨 Incident Service** (Port 8004) - Real-time error monitoring and Redis pub/sub integration
 - **🗄️ InfluxDB** (Port 8086) - Time-series database for metrics and logs
+- **🗄️ Redis** (Port 6379) - Pub/sub messaging for real-time events
 
 ### 🚧 **Not Planned**
-- **📈 Timeseries Service** (Port 8004) - Not currently planned for implementation
+- **📈 Timeseries Service** - Replaced by Incident Service with enhanced functionality
 
 ## 🎯 Key Features
 
@@ -96,8 +100,18 @@ OpsBuddy follows a modern microservices architecture pattern with the following 
 - **Analytics Queries**: Advanced filtering and aggregation capabilities
 - **Log Analytics Dashboard**: Comprehensive log analysis interface
 
+### **🚨 Incident Service (Port 8004)**
+- **Real-time Monitoring**: Continuous monitoring of logs every 30 seconds
+- **Error Detection**: Automatic detection of ERROR, CRITICAL, and FATAL logs
+- **Redis Pub/Sub**: Real-time event publishing for UI consumption
+- **Incident Tracking**: Structured incident data with unique IDs
+- **Analytics Integration**: Publishes error statistics to analytics channels
+- **Service Health Correlation**: Links errors to specific service instances
+- **Real-time Dashboard**: Live error feed for the Analytics tab
+
 ### **🗄️ Infrastructure**
 - **InfluxDB**: Time-series database for metrics and logs (Port 8086)
+- **Redis**: Pub/sub messaging and real-time event distribution (Port 6379)
 - **Docker**: Full containerization support for all services
 - **Health Checks**: Built-in health monitoring across all services
 - **Structured Logging**: JSON-formatted logging throughout
@@ -127,7 +141,9 @@ This will start:
 - **📁 File Service** on port 8001
 - **⚙️ Utility Service** on port 8002
 - **📊 Analytics Service** on port 8003
+- **🚨 Incident Service** on port 8004
 - **🗄️ InfluxDB** on port 8086
+- **🗄️ Redis** on port 6379
 
 ### 3. Access the Services
 
@@ -163,6 +179,14 @@ This will start:
 - **Log Ingestion**: http://localhost:8003/logs
 - **Metrics**: http://localhost:8003/metrics
 - **Statistics**: http://localhost:8003/stats
+
+#### 🚨 Incident Service Direct Access
+- **URL**: http://localhost:8004
+- **Health Check**: http://localhost:8004/health
+- **API Documentation**: http://localhost:8004/docs
+- **Incidents**: http://localhost:8004/incidents
+- **Service Errors**: http://localhost:8004/errors/{service}
+- **Force Check**: http://localhost:8004/check
 
 ## 🔧 Local Development
 
@@ -204,7 +228,16 @@ pip install -r requirements.txt
 python main.py
 ```
 
-#### 5. UI Service
+#### 5. Incident Service
+```bash
+cd services/incident-service
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python main.py
+```
+
+#### 6. UI Service
 ```bash
 cd services/ui-service
 python3 -m venv venv
@@ -234,6 +267,18 @@ INFLUXDB_PORT=8086
 INFLUXDB_TOKEN=your_token
 INFLUXDB_ORG=opsbuddy
 INFLUXDB_DATABASE=opsbuddy
+
+# Redis configuration (for incident-service)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_PASSWORD=
+
+# Incident service specific
+MONITORING_INTERVAL=30
+REDIS_CHANNEL_INCIDENTS=incidents
+REDIS_CHANNEL_ERRORS=error_logs
+REDIS_CHANNEL_ANALYTICS=analytics_updates
 ```
 
 ## 📡 API Usage
@@ -297,6 +342,11 @@ curl -X POST http://localhost:8003/logs/single \   # Ingest single log
 curl -X POST http://localhost:8003/logs/query \    # Query logs
   -H "Content-Type: application/json" \
   -d '{"service":"file-service","level":"ERROR","limit":10}'
+
+# Incident Service Endpoints
+curl http://localhost:8004/incidents                # Get recent incidents
+curl http://localhost:8004/errors/gateway           # Get errors for specific service
+curl -X POST http://localhost:8004/check            # Force error check
 ```
 
 ### 🖥️ UI Service API Endpoints
@@ -329,6 +379,10 @@ curl -X POST http://localhost:3000/api/analytics/logs \
   -d "timestamp=2025-10-13T01:19:00Z" \
   -d "level=INFO" -d "logger=test" \
   -d "message=Test message" -d "service=test-service"
+
+# Incident Operations (via UI service)
+curl http://localhost:3000/api/incidents
+curl http://localhost:3000/api/errors/{service}
 ```
 
 ## 🐳 Docker Commands
@@ -370,6 +424,13 @@ docker build -t opsbuddy-analytics-service .
 docker run -p 8003:8003 opsbuddy-analytics-service
 ```
 
+#### 🚨 Incident Service
+```bash
+cd services/incident-service
+docker build -t opsbuddy-incident-service .
+docker run -p 8004:8004 opsbuddy-incident-service
+```
+
 ### Full Stack with Docker Compose
 
 ```bash
@@ -406,6 +467,7 @@ curl http://localhost:8000/health    # Gateway
 curl http://localhost:8001/health    # File Service
 curl http://localhost:8002/health    # Utility Service
 curl http://localhost:8003/health    # Analytics Service
+curl http://localhost:8004/health    # Incident Service
 ```
 
 ## 🔍 Monitoring and Health Checks
@@ -627,14 +689,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 | **File Service** | ✅ **Complete** | 8001 | File upload/download/management |
 | **Utility Service** | ✅ **Complete** | 8002 | System utilities and configurations |
 | **Analytics Service** | ✅ **Complete** | 8003 | Log collection, validation & InfluxDB storage |
+| **Incident Service** | ✅ **Complete** | 8004 | Real-time error monitoring & Redis pub/sub |
 | **InfluxDB** | ✅ **Complete** | 8086 | Time-series database |
+| **Redis** | ✅ **Complete** | 6379 | Pub/sub messaging for real-time events |
 
 ### Version History
 
 - **v1.0.0**: Initial microservices release with API Gateway, File Service, and Utility Service
 - **v1.1.0**: Web UI Service - Modern interface for testing and managing all services
 - **v1.2.0**: Analytics Service - Log collection, validation, and InfluxDB storage
-- **v1.3.0**: All core services complete and operational
+- **v1.3.0**: Incident Service - Real-time error monitoring and Redis pub/sub integration
+- **v1.4.0**: All core services complete and operational
 - **v2.0.0**: Authentication, rate limiting, and advanced features (planned)
 
 ---

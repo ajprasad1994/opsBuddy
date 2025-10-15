@@ -3,158 +3,907 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="/static/css/style.css" rel="stylesheet">
+    <title>opsBuddy - AI-Driven OnCall Support</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Pattern overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 1px, transparent 1px),
+                radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .app {
+            opacity: 0;
+            animation: fadeIn 0.5s ease-in-out forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+    </style>
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <i class="fas fa-robot me-2"></i>OpsBuddy
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/files">
-                            <i class="fas fa-file-alt me-1"></i>File Service
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/utility">
-                            <i class="fas fa-cogs me-1"></i>Utility Service
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/system">
-                            <i class="fas fa-terminal me-1"></i>System
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/analytics">
-                            <i class="fas fa-chart-line me-1"></i>Analytics
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/api/services/status" target="_blank">
-                            <i class="fas fa-heartbeat me-1"></i>Status
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Hero Section -->
-    <div class="hero-section bg-gradient-primary text-white">
-        <div class="container py-5">
-            <div class="row justify-content-center">
-                <div class="col-lg-8 text-center">
-                    <h1 class="display-4 fw-bold mb-4">
-                        <i class="fas fa-robot me-3"></i>{{ welcome_message }}
-                    </h1>
-                    <p class="lead mb-4">
-                        Centralized management and testing interface for all OpsBuddy services.
-                        Monitor, configure, and interact with your AI-driven oncall support system.
-                    </p>
-                    <div class="row g-4 mt-4">
-                        <div class="col-md-4">
-                            <div class="service-card text-center">
-                                <i class="fas fa-file-upload fa-3x text-primary mb-3"></i>
-                                <h5>File Management</h5>
-                                <p class="small">Upload, download, and manage files across your system</p>
-                                <a href="/files" class="btn btn-light btn-sm">
-                                    <i class="fas fa-arrow-right me-1"></i>Explore
-                                </a>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="service-card text-center">
-                                <i class="fas fa-cog fa-3x text-primary mb-3"></i>
-                                <h5>Configuration</h5>
-                                <p class="small">Manage system configurations and settings</p>
-                                <a href="/utility" class="btn btn-light btn-sm">
-                                    <i class="fas fa-arrow-right me-1"></i>Configure
-                                </a>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="service-card text-center">
-                                <i class="fas fa-terminal fa-3x text-primary mb-3"></i>
-                                <h5>System Operations</h5>
-                                <p class="small">Execute commands and monitor system health</p>
-                                <a href="/system" class="btn btn-light btn-sm">
-                                    <i class="fas fa-arrow-right me-1"></i>Monitor
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <div id="root">
+        <div class="loading">
+            <div class="spinner"></div>
+            <span>Loading opsBuddy...</span>
         </div>
     </div>
 
-    <!-- Services Overview -->
-    <div class="container py-5">
-        <div class="row">
-            <div class="col-12 text-center mb-5">
-                <h2 class="fw-bold">Available Services</h2>
-                <p class="text-muted">Click on any service card to start testing its functionality</p>
-            </div>
-        </div>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/socket.io-client@4/dist/socket.io.js"></script>
 
-        <div class="row g-4" id="servicesContainer">
-            <!-- Service cards will be loaded here -->
-        </div>
-    </div>
+    <script type="text/babel">
+        'use strict';
 
-    <!-- Quick Actions -->
-    <div class="bg-light py-5">
-        <div class="container">
-            <div class="row">
-                <div class="col-12 text-center mb-4">
-                    <h3>Quick Actions</h3>
-                </div>
-            </div>
-            <div class="row g-3 justify-content-center">
-                <div class="col-md-3">
-                    <button class="btn btn-outline-primary w-100" onclick="checkAllServices()">
-                        <i class="fas fa-stethoscope me-2"></i>Check All Services
-                    </button>
-                </div>
-                <div class="col-md-3">
-                    <button class="btn btn-outline-success w-100" onclick="refreshServices()">
-                        <i class="fas fa-sync-alt me-2"></i>Refresh Status
-                    </button>
-                </div>
-                <div class="col-md-3">
-                    <a href="/api/services/status" class="btn btn-outline-info w-100" target="_blank">
-                        <i class="fas fa-chart-line me-2"></i>View Detailed Status
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
+        // Main App Component will be loaded here
+        const { useState, useEffect } = React;
 
-    <!-- Footer -->
-    <footer class="bg-dark text-white py-4">
-        <div class="container text-center">
-            <p class="mb-0">
-                <i class="fas fa-robot me-2"></i>OpsBuddy UI Service |
-                <a href="/api/services/status" class="text-light ms-2" target="_blank">
-                    <i class="fas fa-heartbeat me-1"></i>System Status
-                </a>
-            </p>
-        </div>
-    </footer>
+        // Socket connection
+        const socket = io();
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <script src="/static/js/main.js"></script>
+        // Main App Component
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('home');
+            const [services, setServices] = useState([]);
+            const [metrics, setMetrics] = useState({});
+            const [logs, setLogs] = useState([]);
+            const [incidents, setIncidents] = useState({});
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                // Load initial data
+                loadServices();
+                loadMetrics();
+                loadIncidents();
+
+                // Socket event listeners
+                socket.on('connect', () => {
+                    console.log('Connected to server');
+                    setLoading(false);
+                });
+
+                socket.on('update', (data) => {
+                    if (data.services) setServices(data.services);
+                    if (data.metrics) setMetrics(data.metrics);
+                });
+
+                socket.on('incident_update', (data) => {
+                    console.log('Incident update received:', data);
+                    if (data.data) {
+                        // Update incidents state with new data
+                        setIncidents(prevIncidents => ({
+                            ...prevIncidents,
+                            recent_errors: [data.data, ...(prevIncidents.recent_errors || []).slice(0, 9)]
+                        }));
+                    }
+                });
+
+                socket.on('error', (error) => {
+                    console.error('Socket error:', error);
+                });
+
+                // Request periodic updates
+                const interval = setInterval(() => {
+                    socket.emit('request_update', { timestamp: new Date().toISOString() });
+                }, 5000);
+
+                return () => {
+                    clearInterval(interval);
+                    socket.off('connect');
+                    socket.off('update');
+                    socket.off('incident_update');
+                    socket.off('error');
+                };
+            }, []);
+
+            const loadServices = async () => {
+                try {
+                    const response = await fetch('/api/services');
+                    const data = await response.json();
+                    setServices(data);
+                } catch (error) {
+                    console.error('Error loading services:', error);
+                }
+            };
+
+            const loadMetrics = async () => {
+                try {
+                    const response = await fetch('/api/analytics/metrics');
+                    const data = await response.json();
+                    setMetrics(data);
+                } catch (error) {
+                    console.error('Error loading metrics:', error);
+                }
+            };
+
+            const loadIncidents = async () => {
+                try {
+                    const response = await fetch('/api/incidents');
+                    const data = await response.json();
+                    setIncidents(data);
+                } catch (error) {
+                    console.error('Error loading incidents:', error);
+                }
+            };
+
+            if (loading) {
+                return React.createElement('div', { className: 'loading' },
+                    React.createElement('div', { className: 'spinner' }),
+                    React.createElement('span', null, 'Loading opsBuddy...')
+                );
+            }
+
+            return React.createElement('div', { className: 'app' },
+                React.createElement(Navbar, { activeTab: activeTab, setActiveTab: setActiveTab }),
+                React.createElement('main', null,
+                    activeTab === 'home' && React.createElement(HomePage),
+                    activeTab === 'health' && React.createElement(ServiceHealth, { services: services }),
+                    activeTab === 'analytics' && React.createElement(Analytics, { metrics: metrics, logs: logs, incidents: incidents, loadIncidents: loadIncidents })
+                )
+            );
+        };
+
+        // Navbar Component
+        const Navbar = ({ activeTab, setActiveTab }) => {
+            const tabs = [
+                { id: 'home', icon: 'fas fa-home', label: 'Home' },
+                { id: 'health', icon: 'fas fa-heartbeat', label: 'Service Health' },
+                { id: 'analytics', icon: 'fas fa-chart-bar', label: 'Analytics' }
+            ];
+
+            return React.createElement('nav', {
+                style: {
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    backdropFilter: 'blur(10px)',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+                    padding: '1rem 2rem',
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 100
+                }
+            }, React.createElement('div', {
+                style: {
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    maxWidth: '1200px',
+                    margin: '0 auto'
+                }
+            }, React.createElement('div', {
+                style: {
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    color: 'white',
+                    fontSize: '1.5rem',
+                    fontWeight: 'bold'
+                }
+            }, React.createElement('i', { className: 'fas fa-heartbeat' }), 'opsBuddy'), React.createElement('div', {
+                style: {
+                    display: 'flex',
+                    gap: '2rem',
+                    alignItems: 'center'
+                }
+            }, tabs.map(tab => React.createElement('button', {
+                key: tab.id,
+                onClick: () => setActiveTab(tab.id),
+                style: {
+                    background: activeTab === tab.id ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
+                    border: 'none',
+                    padding: '0.75rem 1.5rem',
+                    borderRadius: '25px',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    transition: 'all 0.3s ease',
+                    backdropFilter: 'blur(10px)'
+                }
+            }, React.createElement('i', { className: tab.icon }), tab.label)))));
+        };
+
+        // Home Page Component
+        const HomePage = () => {
+            const features = [
+                {
+                    icon: '🤖',
+                    title: 'AI-Powered Intelligence',
+                    description: 'Advanced machine learning algorithms analyze system patterns and predict issues before they occur.'
+                },
+                {
+                    icon: '⏰',
+                    title: '24/7 Monitoring',
+                    description: 'Continuous monitoring of all your services with real-time alerts and automated responses.'
+                },
+                {
+                    icon: '📊',
+                    title: 'Real-time Analytics',
+                    description: 'Comprehensive analytics and insights to optimize your infrastructure performance.'
+                }
+            ];
+
+            return React.createElement('div', null,
+                React.createElement('section', {
+                    style: {
+                        padding: '6rem 2rem 4rem',
+                        textAlign: 'center',
+                        color: 'white',
+                        position: 'relative'
+                    }
+                }, React.createElement('div', {
+                    style: {
+                        maxWidth: '800px',
+                        margin: '0 auto',
+                        position: 'relative',
+                        zIndex: 2
+                    }
+                }, React.createElement('h1', {
+                    style: {
+                        fontSize: '4rem',
+                        fontWeight: 'bold',
+                        marginBottom: '1rem',
+                        background: 'linear-gradient(135deg, #fff, #a8edea)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text'
+                    }
+                }, '🏠 opsBuddy'), React.createElement('p', {
+                    style: {
+                        fontSize: '1.5rem',
+                        marginBottom: '3rem',
+                        opacity: 0.9,
+                        lineHeight: 1.6
+                    }
+                }, 'AI-driven oncall support platform for modern DevOps teams'))),
+                React.createElement('section', {
+                    style: {
+                        padding: '2rem',
+                        maxWidth: '1200px',
+                        margin: '0 auto'
+                    }
+                }, React.createElement('div', {
+                    style: {
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                        gap: '2rem',
+                        marginTop: '2rem'
+                    }
+                }, features.map((feature, index) => React.createElement('div', {
+                    key: index,
+                    style: {
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        borderRadius: '20px',
+                        padding: '2rem',
+                        textAlign: 'center',
+                        color: 'white',
+                        transition: 'all 0.3s ease',
+                        cursor: 'pointer'
+                    }
+                }, React.createElement('div', {
+                    style: {
+                        fontSize: '3rem',
+                        marginBottom: '1rem'
+                    }
+                }, feature.icon), React.createElement('h3', {
+                    style: {
+                        fontSize: '1.5rem',
+                        marginBottom: '1rem',
+                        color: '#a8edea'
+                    }
+                }, feature.title), React.createElement('p', {
+                    style: {
+                        opacity: 0.8,
+                        lineHeight: 1.6
+                    }
+                }, feature.description)))))
+            );
+        };
+
+        // Service Health Component
+        const ServiceHealth = ({ services }) => {
+            // Default services data when API is not available
+            const defaultServices = [
+                {
+                    name: 'API Gateway',
+                    port: 8000,
+                    status: 'unknown',
+                    response_time: 0,
+                    uptime: 0,
+                    description: 'Main API Gateway service'
+                },
+                {
+                    name: 'File Service',
+                    port: 8001,
+                    status: 'unknown',
+                    response_time: 0,
+                    uptime: 0,
+                    description: 'File management and storage service'
+                },
+                {
+                    name: 'Utility Service',
+                    port: 8002,
+                    status: 'unknown',
+                    response_time: 0,
+                    uptime: 0,
+                    description: 'System utility and command execution service'
+                },
+                {
+                    name: 'Analytics Service',
+                    port: 8003,
+                    status: 'unknown',
+                    response_time: 0,
+                    uptime: 0,
+                    description: 'Log analytics and metrics collection service'
+                },
+                {
+                    name: 'UI Service',
+                    port: 3000,
+                    status: 'unknown',
+                    response_time: 0,
+                    uptime: 0,
+                    description: 'Web interface and dashboard service'
+                },
+                {
+                    name: 'InfluxDB',
+                    port: 8086,
+                    status: 'unknown',
+                    response_time: 0,
+                    uptime: 0,
+                    description: 'Time series database for metrics storage'
+                }
+            ];
+
+            // Use API data if available, otherwise use default services
+            const displayServices = services && services.length > 0 ? services : defaultServices;
+
+            const getStatusColor = (status) => {
+                switch (status) {
+                    case 'healthy': return '#4CAF50';
+                    case 'warning': return '#FF9800';
+                    case 'error': return '#f44336';
+                    case 'unknown': return '#9E9E9E';
+                    default: return '#9E9E9E';
+                }
+            };
+
+            const getStatusIcon = (status) => {
+                switch (status) {
+                    case 'healthy': return 'fas fa-check-circle';
+                    case 'warning': return 'fas fa-exclamation-triangle';
+                    case 'error': return 'fas fa-times-circle';
+                    case 'unknown': return 'fas fa-question-circle';
+                    default: return 'fas fa-question-circle';
+                }
+            };
+
+            return React.createElement('div', {
+                style: {
+                    padding: '2rem',
+                    maxWidth: '1400px',
+                    margin: '0 auto'
+                }
+            }, React.createElement('h2', {
+                style: {
+                    color: 'white',
+                    fontSize: '2.5rem',
+                    marginBottom: '2rem',
+                    textAlign: 'center'
+                }
+            }, '🫀 Service Health Dashboard'), React.createElement('div', {
+                style: {
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+                    gap: '2rem'
+                }
+            }, displayServices.map((service, index) => React.createElement('div', {
+                key: index,
+                style: {
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    backdropFilter: 'blur(10px)',
+                    border: `1px solid rgba(255, 255, 255, 0.2)`,
+                    borderRadius: '20px',
+                    padding: '2rem',
+                    color: 'white',
+                    transition: 'all 0.3s ease',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }
+            }, React.createElement('div', {
+                style: {
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: '4px',
+                    background: getStatusColor(service.status)
+                }
+            }), React.createElement('div', {
+                style: {
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '1.5rem'
+                }
+            }, React.createElement('div', {
+                style: {
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem'
+                }
+            }, React.createElement('i', {
+                className: getStatusIcon(service.status),
+                style: {
+                    fontSize: '1.5rem',
+                    color: getStatusColor(service.status)
+                }
+            }), React.createElement('h3', {
+                style: {
+                    fontSize: '1.4rem',
+                    color: '#a8edea',
+                    margin: 0
+                }
+            }, service.name)), React.createElement('div', {
+                style: {
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                }
+            }, React.createElement('span', {
+                style: {
+                    padding: '0.25rem 0.75rem',
+                    borderRadius: '15px',
+                    fontSize: '0.8rem',
+                    background: getStatusColor(service.status),
+                    color: 'white',
+                    fontWeight: 'bold'
+                }
+            }, service.status.toUpperCase()), React.createElement('span', {
+                style: {
+                    fontSize: '0.9rem',
+                    opacity: 0.7
+                }
+            }, `Port ${service.port}`))), React.createElement('p', {
+                style: {
+                    fontSize: '0.9rem',
+                    opacity: 0.8,
+                    marginBottom: '1.5rem',
+                    lineHeight: 1.4
+                }
+            }, service.description), React.createElement('div', {
+                style: {
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '1rem',
+                    marginBottom: '1.5rem'
+                }
+            }, React.createElement('div', {
+                style: {
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    padding: '1rem',
+                    borderRadius: '10px',
+                    textAlign: 'center'
+                }
+            }, React.createElement('div', {
+                style: {
+                    fontSize: '0.8rem',
+                    opacity: 0.7,
+                    marginBottom: '0.5rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                }
+            }, 'Response Time'), React.createElement('div', {
+                style: {
+                    fontSize: '1.8rem',
+                    fontWeight: 'bold',
+                    color: service.response_time > 0 ? '#4CAF50' : '#9E9E9E'
+                }
+            }, service.response_time > 0 ? `${service.response_time}ms` : '--')), React.createElement('div', {
+                style: {
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    padding: '1rem',
+                    borderRadius: '10px',
+                    textAlign: 'center'
+                }
+            }, React.createElement('div', {
+                style: {
+                    fontSize: '0.8rem',
+                    opacity: 0.7,
+                    marginBottom: '0.5rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                }
+            }, 'Uptime'), React.createElement('div', {
+                style: {
+                    fontSize: '1.8rem',
+                    fontWeight: 'bold',
+                    color: service.uptime > 0 ? '#2196F3' : '#9E9E9E'
+                }
+            }, service.uptime > 0 ? `${service.uptime}%` : '--'))), React.createElement('button', {
+                style: {
+                    width: '100%',
+                    padding: '0.75rem',
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: '10px',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '1rem',
+                    transition: 'all 0.3s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem'
+                }
+            }, React.createElement('i', { className: 'fas fa-sync-alt' }), 'Check Health')))));
+        };
+
+        // Analytics Component
+        const Analytics = ({ metrics, logs, incidents, loadIncidents }) => {
+
+            const stats = [
+                { label: 'Total Requests', value: metrics.total_requests || 0, color: '#4CAF50' },
+                { label: 'Error Rate', value: `${metrics.error_rate || 0}%`, color: '#f44336' },
+                { label: 'Avg Response Time', value: `${metrics.avg_response_time || 0}ms`, color: '#2196F3' },
+                { label: 'Active Services', value: metrics.active_services || 0, color: '#FF9800' }
+            ];
+
+            const incidentStats = [
+                { label: 'Total Errors (24h)', value: (incidents.incidents && incidents.incidents.total_errors) || 0, color: '#f44336' },
+                { label: 'Services Affected', value: (incidents.incidents && incidents.incidents.services_affected) || 0, color: '#FF9800' },
+                { label: 'Recent Errors', value: (incidents.incidents && incidents.incidents.recent_error_count) || 0, color: '#2196F3' }
+            ];
+
+            return React.createElement('div', {
+                style: {
+                    padding: '2rem',
+                    maxWidth: '1200px',
+                    margin: '0 auto'
+                }
+            }, React.createElement('h2', {
+                style: {
+                    color: 'white',
+                    fontSize: '2.5rem',
+                    marginBottom: '2rem',
+                    textAlign: 'center'
+                }
+            }, '📊 Analytics'), React.createElement('div', {
+                style: {
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                    gap: '2rem',
+                    marginBottom: '3rem'
+                }
+            }, stats.map((stat, index) => React.createElement('div', {
+                key: index,
+                style: {
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '20px',
+                    padding: '2rem',
+                    textAlign: 'center',
+                    color: 'white',
+                    transition: 'all 0.3s ease',
+                    cursor: 'pointer'
+                }
+            }, React.createElement('div', {
+                style: {
+                    fontSize: '2.5rem',
+                    fontWeight: 'bold',
+                    color: stat.color,
+                    marginBottom: '0.5rem'
+                }
+            }, stat.value), React.createElement('div', {
+                style: {
+                    opacity: 0.8
+                }
+            }, stat.label)))), React.createElement('div', {
+                style: {
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                    gap: '2rem',
+                    marginBottom: '3rem'
+                }
+            }, incidentStats.map((stat, index) => React.createElement('div', {
+                key: index,
+                style: {
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '20px',
+                    padding: '2rem',
+                    textAlign: 'center',
+                    color: 'white',
+                    transition: 'all 0.3s ease',
+                    cursor: 'pointer'
+                }
+            }, React.createElement('div', {
+                style: {
+                    fontSize: '2.5rem',
+                    fontWeight: 'bold',
+                    color: stat.color,
+                    marginBottom: '0.5rem'
+                }
+            }, stat.value), React.createElement('div', {
+                style: {
+                    opacity: 0.8
+                }
+            }, stat.label)))), React.createElement('div', {
+                style: {
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '20px',
+                    padding: '2rem',
+                    marginBottom: '2rem'
+                }
+            }, React.createElement('h3', {
+                style: {
+                    color: 'white',
+                    marginBottom: '1rem',
+                    fontSize: '1.5rem'
+                }
+            }, 'Recent Incidents & Errors'),
+
+            // Display recent errors/incidents
+            ((incidents.incidents && incidents.incidents.recent_errors && incidents.incidents.recent_errors.length > 0) || (incidents.incidents && incidents.incidents.error_breakdown)) &&
+            React.createElement('div', {
+                style: {
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '20px',
+                    padding: '2rem',
+                    marginTop: '2rem'
+                }
+            },
+            React.createElement('h3', {
+                style: {
+                    color: 'white',
+                    marginBottom: '1rem',
+                    fontSize: '1.5rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                }
+            }, React.createElement('i', { className: 'fas fa-exclamation-triangle' }), '🚨 Recent Incidents & Errors'),
+            React.createElement('div', {
+                style: {
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                    gap: '2rem',
+                    marginBottom: '2rem'
+                }
+            },
+
+            // Error breakdown by service
+            (incidents.incidents && incidents.incidents.error_breakdown) && Object.entries(incidents.incidents.error_breakdown).map(([service, data]) =>
+                React.createElement('div', {
+                    key: service,
+                    style: {
+                        background: 'rgba(244, 67, 54, 0.1)',
+                        border: '1px solid rgba(244, 67, 54, 0.3)',
+                        borderRadius: '15px',
+                        padding: '1.5rem'
+                    }
+                },
+                React.createElement('h4', {
+                    style: {
+                        color: '#f44336',
+                        marginBottom: '1rem',
+                        fontSize: '1.2rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                    }
+                }, React.createElement('i', { className: 'fas fa-server' }), service.toUpperCase()),
+                React.createElement('div', {
+                    style: {
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: '1rem',
+                        marginBottom: '1rem'
+                    }
+                },
+                React.createElement('div', {
+                    style: {
+                        textAlign: 'center'
+                    }
+                },
+                React.createElement('div', {
+                    style: {
+                        fontSize: '2rem',
+                        fontWeight: 'bold',
+                        color: '#f44336'
+                    }
+                }, data.total_errors),
+                React.createElement('div', {
+                    style: {
+                        fontSize: '0.9rem',
+                        color: 'white',
+                        opacity: 0.8
+                    }
+                }, 'Total Errors')
+                ),
+                React.createElement('div', {
+                    style: {
+                        textAlign: 'center'
+                    }
+                },
+                React.createElement('div', {
+                    style: {
+                        fontSize: '2rem',
+                        fontWeight: 'bold',
+                        color: '#FF9800'
+                    }
+                }, Object.keys(data.error_levels).length),
+                React.createElement('div', {
+                    style: {
+                        fontSize: '0.9rem',
+                        color: 'white',
+                        opacity: 0.8
+                    }
+                }, 'Error Types')
+                )
+                ),
+                React.createElement('div', {
+                    style: {
+                        fontSize: '0.9rem',
+                        color: 'white'
+                    }
+                }, 'Error Levels:',
+                Object.entries(data.error_levels).map(([level, count]) =>
+                    React.createElement('span', {
+                        key: level,
+                        style: {
+                            display: 'inline-block',
+                            margin: '0.25rem',
+                            padding: '0.25rem 0.5rem',
+                            background: 'rgba(244, 67, 54, 0.2)',
+                            borderRadius: '5px',
+                            fontSize: '0.8rem'
+                        }
+                    }, `${level}: ${count}`)
+                ))
+                )
+            ),
+
+            // Recent error logs
+            (incidents.incidents && incidents.incidents.recent_errors && incidents.incidents.recent_errors.length > 0) &&
+            React.createElement('div', null,
+                React.createElement('h4', {
+                    style: {
+                        color: 'white',
+                        marginBottom: '1rem',
+                        fontSize: '1.2rem'
+                    }
+                }, 'Recent Error Logs'),
+                React.createElement('div', {
+                    style: {
+                        maxHeight: '300px',
+                        overflowY: 'auto'
+                    }
+                },
+                incidents.incidents.recent_errors.slice(0, 10).map((error, index) =>
+                    React.createElement('div', {
+                        key: index,
+                        style: {
+                            background: 'rgba(244, 67, 54, 0.1)',
+                            padding: '1rem',
+                            marginBottom: '0.5rem',
+                            borderRadius: '10px',
+                            borderLeft: '4px solid #f44336'
+                        }
+                    },
+                    React.createElement('div', {
+                        style: {
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '0.5rem'
+                        }
+                    },
+                    React.createElement('span', {
+                        style: {
+                            background: '#f44336',
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '5px',
+                            fontSize: '0.8rem',
+                            color: 'white'
+                        }
+                    }, error.level || 'ERROR'),
+                    React.createElement('span', {
+                        style: {
+                            color: '#a8edea',
+                            fontSize: '0.9rem'
+                        }
+                    }, error.timestamp || new Date().toISOString())
+                    ),
+                    React.createElement('div', {
+                        style: {
+                            color: 'white',
+                            fontFamily: 'monospace',
+                            fontSize: '0.9rem',
+                            marginBottom: '0.5rem'
+                        }
+                    }, React.createElement('strong', null, 'Service:'), ` ${error.service || 'unknown'}`),
+                    React.createElement('div', {
+                        style: {
+                            color: 'white',
+                            fontFamily: 'monospace',
+                            fontSize: '0.9rem',
+                            marginBottom: '0.5rem'
+                        }
+                    }, React.createElement('strong', null, 'Logger:'), ` ${error.logger || 'unknown'}`),
+                    React.createElement('div', {
+                        style: {
+                            color: 'white',
+                            fontFamily: 'monospace',
+                            fontSize: '0.9rem'
+                        }
+                    }, React.createElement('strong', null, 'Message:'), ` ${error.message || 'No message'}`)
+                    )
+                )))
+            ))));
+        };
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(App));
+    </script>
 </body>
 </html>
