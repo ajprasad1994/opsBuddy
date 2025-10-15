@@ -14,6 +14,7 @@ class Config:
     FILE_SERVICE_URL = os.getenv('FILE_SERVICE_URL', 'http://file-service:8001')
     UTILITY_SERVICE_URL = os.getenv('UTILITY_SERVICE_URL', 'http://utility-service:8002')
     INCIDENT_SERVICE_URL = os.getenv('INCIDENT_SERVICE_URL', 'http://incident-service:8004')
+    MONITOR_SERVICE_URL = os.getenv('MONITOR_SERVICE_URL', 'http://monitor-service:8005')
 
     # CORS settings
     CORS_ORIGINS = os.getenv('CORS_ORIGINS', '*')

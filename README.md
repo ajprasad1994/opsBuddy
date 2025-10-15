@@ -11,10 +11,13 @@ A comprehensive operations management platform built with a microservices archit
 - ⚙️ **Utility Service** (Port 8002) with configuration management
 - 📊 **Analytics Service** (Port 8003) with log collection, validation, and InfluxDB storage
 - 🚨 **Incident Service** (Port 8004) with real-time error monitoring and Redis pub/sub
+- 📈 **Monitor Service** (Port 8005) with real-time health monitoring and WebSocket updates
 - 🗄️ **InfluxDB** (Port 8086) time-series database for metrics and logs
 - 🗄️ **Redis** (Port 6379) for pub/sub messaging and real-time events
 - 🐳 **Complete Docker Integration** - Single command deployment
 - 🔧 **Interactive Testing Interface** for all service functionalities
+- 🫀 **Real-time Service Health Monitoring** with live status updates
+- ⚡ **Real-time Error Streaming** in Analytics tab with service-specific formatting
 
 **🚀 Quick Start:** `docker-compose up -d` then visit http://localhost:3000
 
@@ -31,10 +34,10 @@ OpsBuddy follows a modern microservices architecture pattern with the following 
          ┌─────────────────────────────────────────────────────────────────────┐
          │                          Services                                   │
          │                                                                     │
-         │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-         │  │File Service │ │Utility Svc  │ │Analytics   │ │Incident    │ │  Web UI     │
-         │  │(Port 8001)  │ │(Port 8002)  │ │(Port 8003) │ │(Port 8004) │ │(Port 3000)  │
-         │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
+         │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+         │  │File Service │ │Utility Svc  │ │Analytics   │ │Incident    │ │  Monitor    │ │  Web UI     │
+         │  │(Port 8001)  │ │(Port 8002)  │ │(Port 8003) │ │(Port 8004) │ │(Port 8005)  │ │(Port 3000)  │
+         │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
          └─────────────────────────────────────────────────────────────────────┘
                                   │
                                   ▼
@@ -46,6 +49,32 @@ OpsBuddy follows a modern microservices architecture pattern with the following 
 
 ## 📋 Current Implementation Status
 
+### 🚀 **Latest Enhancement: Real-time Error Streaming Analytics**
+
+**✅ Recently Completed (v1.6.0):**
+- **Real-time Error Streaming**: Live error log display in Analytics tab
+- **WebSocket Integration**: Instant error updates across all connected clients
+- **Redis Pub/Sub Enhancement**: Dedicated error log broadcasting channel
+- **Service-Specific UI**: Unique icons and colors for each service
+- **Advanced Error Formatting**: Color-coded severity levels and structured display
+- **Live Error Feed**: WebSocket-powered real-time error streaming
+- **Error Statistics Dashboard**: Real-time error counts and service reporting status
+
+**🔧 Technical Implementation:**
+- **Frontend**: React-based real-time error display with service-specific styling
+- **Backend**: Enhanced incident service with individual error log publishing
+- **WebSocket**: Monitor service broadcasting error logs to all connected clients
+- **Redis**: Dedicated `error_logs` channel for real-time error distribution
+- **UI/UX**: Streamlined Analytics tab focused exclusively on error monitoring
+
+**🎯 Key Features:**
+- **Live Error Stream**: Real-time display of all ERROR and CRITICAL logs
+- **Service Identification**: Clear visual indicators for each service (API Gateway, File Service, etc.)
+- **Error Level Coding**: Color-coded severity with icons (🔴 CRITICAL, 🟠 ERROR, 🟡 WARNING, 🔵 INFO)
+- **Timestamp Display**: Real-time timestamps for each error occurrence
+- **Error Details**: Logger name, service name, and formatted error messages
+- **System Status**: "All Systems Operational" when no errors are detected
+
 ### ✅ **Fully Implemented & Tested**
 - **🌐 Web UI Service** (Port 3000) - Modern interface for testing all services with "Welcome to OpsBuddy - AI driven oncall support"
 - **🚪 API Gateway** (Port 8000) - Complete with health monitoring and routing
@@ -53,11 +82,12 @@ OpsBuddy follows a modern microservices architecture pattern with the following 
 - **⚙️ Utility Service** (Port 8002) - Configuration management and system operations
 - **📊 Analytics Service** (Port 8003) - Log collection, validation, and time-series storage in InfluxDB
 - **🚨 Incident Service** (Port 8004) - Real-time error monitoring and Redis pub/sub integration
+- **📈 Monitor Service** (Port 8005) - Real-time health monitoring and WebSocket updates
 - **🗄️ InfluxDB** (Port 8086) - Time-series database for metrics and logs
 - **🗄️ Redis** (Port 6379) - Pub/sub messaging for real-time events
 
 ### 🚧 **Not Planned**
-- **📈 Timeseries Service** - Replaced by Incident Service with enhanced functionality
+- **📈 Timeseries Service** - Replaced by Monitor Service with enhanced functionality
 
 ## 🎯 Key Features
 
@@ -109,6 +139,15 @@ OpsBuddy follows a modern microservices architecture pattern with the following 
 - **Service Health Correlation**: Links errors to specific service instances
 - **Real-time Dashboard**: Live error feed for the Analytics tab
 
+### **📈 Monitor Service (Port 8005)**
+- **Real-time Health Monitoring**: Polls health endpoints of all microservices every 30 seconds
+- **Service Status Tracking**: Monitors response times, consecutive failures, and error conditions
+- **Redis Pub/Sub Integration**: Publishes real-time status updates for live visibility
+- **WebSocket Server**: Provides real-time communication for instant UI updates
+- **System Health Overview**: Aggregates health status across all services
+- **Live Dashboard**: Service Health tab with color-coded status indicators
+- **Comprehensive Monitoring**: Tracks 7 services with detailed health metrics
+
 ### **🗄️ Infrastructure**
 - **InfluxDB**: Time-series database for metrics and logs (Port 8086)
 - **Redis**: Pub/sub messaging and real-time event distribution (Port 6379)
@@ -142,6 +181,7 @@ This will start:
 - **⚙️ Utility Service** on port 8002
 - **📊 Analytics Service** on port 8003
 - **🚨 Incident Service** on port 8004
+- **📈 Monitor Service** on port 8005 (Real-time health monitoring)
 - **🗄️ InfluxDB** on port 8086
 - **🗄️ Redis** on port 6379
 
@@ -187,6 +227,16 @@ This will start:
 - **Incidents**: http://localhost:8004/incidents
 - **Service Errors**: http://localhost:8004/errors/{service}
 - **Force Check**: http://localhost:8004/check
+
+#### 📈 Monitor Service Direct Access
+- **URL**: http://localhost:8005
+- **Health Check**: http://localhost:8005/health
+- **API Documentation**: http://localhost:8005/docs
+- **All Services**: http://localhost:8005/services
+- **Specific Service**: http://localhost:8005/services/{name}
+- **System Health**: http://localhost:8005/system/health
+- **Service Info**: http://localhost:8005/info
+- **WebSocket**: ws://localhost:8005/ws (Real-time updates)
 
 ## 🔧 Local Development
 
@@ -383,6 +433,11 @@ curl -X POST http://localhost:3000/api/analytics/logs \
 # Incident Operations (via UI service)
 curl http://localhost:3000/api/incidents
 curl http://localhost:3000/api/errors/{service}
+
+# Monitor Operations (via UI service)
+curl http://localhost:3000/api/monitor/services
+curl http://localhost:3000/api/monitor/services/{service}
+curl http://localhost:3000/api/monitor/system/health
 ```
 
 ## 🐳 Docker Commands
@@ -431,6 +486,13 @@ docker build -t opsbuddy-incident-service .
 docker run -p 8004:8004 opsbuddy-incident-service
 ```
 
+#### 📈 Monitor Service
+```bash
+cd services/monitor-service
+docker build -t opsbuddy-monitor-service .
+docker run -p 8005:8005 -p 8006:8006 opsbuddy-monitor-service
+```
+
 ### Full Stack with Docker Compose
 
 ```bash
@@ -468,6 +530,7 @@ curl http://localhost:8001/health    # File Service
 curl http://localhost:8002/health    # Utility Service
 curl http://localhost:8003/health    # Analytics Service
 curl http://localhost:8004/health    # Incident Service
+curl http://localhost:8005/health    # Monitor Service
 ```
 
 ## 🔍 Monitoring and Health Checks
@@ -658,11 +721,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Status Indicators**: Visual indicators for service health (healthy/unhealthy)
 
 ### Analytics Interface
-- **Service Statistics Dashboard**: 24-hour metrics with error rates and trends
-- **Log Query Interface**: Filter and search logs by service, level, and time
-- **Manual Log Entry**: Test log ingestion with custom log data
-- **Metrics Display**: Real-time service performance metrics
-- **Analytics Dashboard**: Comprehensive log analysis and visualization
+- **Real-time Error Streaming**: Live error log display with service-specific formatting
+- **Service-Specific Icons & Colors**: Unique visual indicators for each service
+- **Live Error Feed**: WebSocket-powered real-time error updates
+- **Error Level Indicators**: Color-coded severity levels (CRITICAL, ERROR, WARNING, INFO)
+- **Service Error Tracking**: Individual error tracking per service with timestamps
+- **Error Statistics Summary**: Total errors, services reporting, and critical error counts
+- **"All Systems Operational" Display**: Clean interface when no errors are present
 
 ## 🔮 Roadmap
 
@@ -690,6 +755,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 | **Utility Service** | ✅ **Complete** | 8002 | System utilities and configurations |
 | **Analytics Service** | ✅ **Complete** | 8003 | Log collection, validation & InfluxDB storage |
 | **Incident Service** | ✅ **Complete** | 8004 | Real-time error monitoring & Redis pub/sub |
+| **Monitor Service** | ✅ **Complete** | 8005 | Real-time health monitoring & WebSocket updates |
 | **InfluxDB** | ✅ **Complete** | 8086 | Time-series database |
 | **Redis** | ✅ **Complete** | 6379 | Pub/sub messaging for real-time events |
 
@@ -699,7 +765,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **v1.1.0**: Web UI Service - Modern interface for testing and managing all services
 - **v1.2.0**: Analytics Service - Log collection, validation, and InfluxDB storage
 - **v1.3.0**: Incident Service - Real-time error monitoring and Redis pub/sub integration
-- **v1.4.0**: All core services complete and operational
+- **v1.4.0**: Monitor Service - Real-time health monitoring and WebSocket updates
+- **v1.5.0**: All core services complete and operational with comprehensive monitoring
+- **v1.6.0**: Real-time Error Streaming - Live error logs in Analytics tab with service-specific formatting
 - **v2.0.0**: Authentication, rate limiting, and advanced features (planned)
 
 ---

@@ -62,10 +62,13 @@ async def lifespan(app: FastAPI):
             logger.error(f"Failed to connect to Redis: {str(e)}")
             redis_client = None
 
-        # Start monitoring task
+        # Start monitoring with background thread approach
         if db_connected and redis_client:
             logger.info("Starting incident monitoring...")
-            monitoring_task = asyncio.create_task(start_monitoring())
+            # Use background thread for monitoring (similar to UI service Redis subscriber)
+            import threading
+            monitor_thread = threading.Thread(target=start_monitoring_thread, daemon=True)
+            monitor_thread.start()
             logger.info("Incident monitoring started successfully")
         else:
             logger.warning("Monitoring not started due to missing connections")
@@ -190,7 +193,7 @@ async def health_check():
         monitoring_status = "healthy" if monitoring_task and not monitoring_task.done() else "unhealthy"
 
         overall_status = "healthy"
-        if db_status != "healthy" or redis_status != "healthy" or monitoring_status != "unhealthy":
+        if db_status != "healthy" or redis_status != "healthy" or monitoring_status != "healthy":
             overall_status = "degraded"
         if db_status != "healthy" and redis_status != "healthy":
             overall_status = "unhealthy"
@@ -315,16 +318,18 @@ async def service_info():
     }
 
 # Background monitoring function
-async def start_monitoring():
-    """Start the continuous monitoring loop."""
+async def monitoring_loop():
+    """Start the continuous monitoring loop in the main event loop."""
     global last_error_check
 
     logger.info(f"Starting monitoring loop with {settings.monitoring_interval}s interval")
 
     while True:
         try:
+            logger.debug("Running error check cycle...")
             # Run error check
             await run_error_check()
+            logger.debug("Error check cycle completed")
 
             # Wait for next interval
             await asyncio.sleep(settings.monitoring_interval)
@@ -336,6 +341,20 @@ async def start_monitoring():
             logger.error(f"Error in monitoring loop: {str(e)}")
             # Continue monitoring even if there's an error
             await asyncio.sleep(settings.monitoring_interval)
+
+# Thread-based monitoring starter
+def start_monitoring_thread():
+    """Start monitoring in a background thread with its own event loop."""
+    try:
+        # Create new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        # Run the monitoring loop
+        loop.run_until_complete(monitoring_loop())
+
+    except Exception as e:
+        logger.error(f"Error in monitoring thread: {str(e)}")
 
 # Error checking and Redis publishing function
 async def run_error_check():
@@ -368,6 +387,9 @@ async def run_error_check():
 
                     # Publish to Redis channels
                     await publish_incident(incident_event)
+
+                    # Publish individual error log for real-time UI updates
+                    await publish_error_log(error_log)
 
                     # Log the incident
                     log_incident(
@@ -450,6 +472,40 @@ async def publish_analytics_update(analytics_event: Dict[str, Any]):
 
     except Exception as e:
         logger.error(f"Failed to publish analytics update to Redis: {str(e)}")
+
+
+async def publish_error_log(error_log: Dict[str, Any]):
+    """Publish individual error log to Redis for real-time UI updates."""
+    if not redis_client:
+        logger.warning("Cannot publish error log: no Redis connection")
+        return
+
+    try:
+        # Create error log event for UI
+        error_event = {
+            "type": "error_log",
+            "error": {
+                "service": error_log.get("service", "unknown"),
+                "level": error_log.get("level", "ERROR"),
+                "logger": error_log.get("logger", "unknown"),
+                "message": error_log.get("message", "No message"),
+                "timestamp": error_log.get("timestamp", datetime.utcnow().isoformat() + "Z"),
+                "operation": error_log.get("operation"),
+                "host": error_log.get("host")
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+        # Publish to error logs channel
+        await redis_client.publish(
+            settings.redis_channel_errors,
+            json.dumps(error_event, default=str)
+        )
+
+        logger.debug(f"Published error log for service: {error_log.get('service', 'unknown')}")
+
+    except Exception as e:
+        logger.error(f"Failed to publish error log to Redis: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

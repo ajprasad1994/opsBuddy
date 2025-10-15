@@ -106,6 +106,33 @@ def get_service_errors(service):
     except requests.RequestException as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/monitor/services')
+def get_monitor_services():
+    """Get service health data from monitor service"""
+    try:
+        response = requests.get(f"{app.config['MONITOR_SERVICE_URL']}/services")
+        return jsonify(response.json())
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/monitor/services/<service_name>')
+def get_monitor_service(service_name):
+    """Get specific service health data from monitor service"""
+    try:
+        response = requests.get(f"{app.config['MONITOR_SERVICE_URL']}/services/{service_name}")
+        return jsonify(response.json())
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/monitor/system/health')
+def get_system_health():
+    """Get overall system health from monitor service"""
+    try:
+        response = requests.get(f"{app.config['MONITOR_SERVICE_URL']}/system/health")
+        return jsonify(response.json())
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/services/status')
 def get_all_services_status():
     """Get comprehensive status of all services"""
@@ -211,11 +238,11 @@ def redis_subscriber():
             decode_responses=True
         )
 
-        # Subscribe to incident channels
+        # Subscribe to incident and service health channels
         pubsub = redis_client.pubsub()
-        pubsub.subscribe('incidents', 'error_logs', 'analytics_updates')
+        pubsub.subscribe('incidents', 'error_logs', 'analytics_updates', 'service_health', 'websocket_updates')
 
-        print("Redis subscriber started, listening for incident updates...")
+        print("Redis subscriber started, listening for updates...")
 
         for message in pubsub.listen():
             if message['type'] == 'message':
@@ -223,14 +250,34 @@ def redis_subscriber():
                     data = json.loads(message['data'])
                     channel = message['channel']
 
-                    print(f"Received update on {channel}: {data.get('event_type', 'unknown')}")
+                    print(f"Received update on {channel}: {data.get('service', 'unknown')}")
 
-                    # Emit real-time update to all connected clients
-                    socketio.emit('incident_update', {
-                        'channel': channel,
-                        'data': data,
-                        'timestamp': time.time()
-                    })
+                    # Handle different types of updates with proper SocketIO context
+                    if channel == 'service_health':
+                        # Use SocketIO's context manager for thread-safe emission
+                        with app.app_context():
+                            socketio.emit('service_health_update', {
+                                'channel': channel,
+                                'data': data,
+                                'timestamp': time.time()
+                            })
+                            print(f"Emitted service_health_update for {data.get('service', 'unknown')}")
+                    elif channel in ['incidents', 'error_logs', 'analytics_updates']:
+                        # Use SocketIO's context manager for thread-safe emission
+                        with app.app_context():
+                            socketio.emit('incident_update', {
+                                'channel': channel,
+                                'data': data,
+                                'timestamp': time.time()
+                            })
+                    else:
+                        # Generic update for other channels
+                        with app.app_context():
+                            socketio.emit('generic_update', {
+                                'channel': channel,
+                                'data': data,
+                                'timestamp': time.time()
+                            })
                 except json.JSONDecodeError as e:
                     print(f"Error parsing Redis message: {e}")
                 except Exception as e:

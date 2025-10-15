@@ -83,12 +83,6 @@ class GatewaySettings(BaseSettings):
                 port=int(os.getenv("INCIDENT_SERVICE_PORT", "8004")),
                 health_endpoint="/health"
             ),
-            "timeseries": ServiceConfig(
-                name="timeseries-service",
-                host=os.getenv("TIMESERIES_SERVICE_HOST", "localhost"),
-                port=int(os.getenv("TIMESERIES_SERVICE_PORT", "8004")),
-                health_endpoint="/health"
-            )
         }
     
     @property
@@ -107,7 +101,6 @@ class GatewaySettings(BaseSettings):
             "/api/utils": "utility",
             "/api/analytics": "analytics",
             "/api/incidents": "incident",
-            "/api/timeseries": "timeseries"
         }
     
     model_config = {
